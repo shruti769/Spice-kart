@@ -136,6 +136,7 @@ function Stat({ value, label, onPress }: { value: string | number; label: string
 export default function AccountScreen() {
   const pad = usePad();
   const t = useTotals();
+  const user = useApp((s) => s.user);
   const order = useApp((s) => s.order);
   const wallet = useApp((s) => s.wallet);
   const sensitive = usePref('sens', true);
@@ -155,8 +156,8 @@ export default function AccountScreen() {
         style={{ borderBottomWidth: 1, borderBottomColor: '#DDE9DA', paddingTop: pad.top(52), paddingHorizontal: 14, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 11 }}>
         <Image source={LOCAL.appIcon} accessibilityLabel="Spice Kart" style={{ width: 40, height: 40, borderRadius: 10 }} />
         <View style={{ gap: 3, flexShrink: 1 }}>
-          <Txt numberOfLines={1} style={[f(700, 15.5, 1.2), { color: C.forest }]}>Hi, Jaiveer</Txt>
-          <Txt numberOfLines={1} style={[f(400, 11.5, 1), { color: C.greenMuted }]}>jaiveer@spicekart.com.au</Txt>
+          <Txt numberOfLines={1} style={[f(700, 15.5, 1.2), { color: C.forest }]}>Hi, {user.first}</Txt>
+          {!!user.email && <Txt numberOfLines={1} style={[f(400, 11.5, 1), { color: C.greenMuted }]}>{user.email}</Txt>}
         </View>
       </Grad>
 

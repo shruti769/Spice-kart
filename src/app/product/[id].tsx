@@ -13,7 +13,7 @@ import { ETA_MINUTES, PRODUCTS, byNames, discountPct, findProduct, money } from 
 import { goBack } from '@/lib/nav';
 import { useApp } from '@/store/app-store';
 
-const RELATED = byNames(['White Sandwich Loaf', 'Free Range Eggs', 'Salted Butter', 'Greek Yoghurt']);
+const RELATED = byNames(['White Sandwich Loaf', 'Free Range Eggs', 'Mother Dairy Salted Butter', 'Greek Yoghurt']);
 
 /** Small grey/green chip under the title (`padding:5px 8px;border-radius:5px`). */
 function Pill({ children, green }: { children: string; green?: boolean }) {
@@ -104,7 +104,7 @@ export default function ProductScreen() {
         {/* Hero */}
         <Grad colors={['#F3F7EC', '#FAFBF6']} {...cssAngle(165)} style={{ height: 300 }}>
           <Image
-            source={{ uri: prod.img }}
+            source={typeof prod.img === 'string' ? { uri: prod.img } : prod.img}
             contentFit="cover"
             transition={180}
             cachePolicy="memory-disk"

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 
 import { Caption, Card, Glyph, IconTile, Row, Section } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
@@ -23,7 +23,6 @@ function Badge({ children }: { children: string }) {
 /** Contact support hub (`sSupport`). */
 export default function SupportScreen() {
   const flash = useApp((s) => s.flash);
-  const soon = () => flash('Coming soon');
   const openIssue = () => router.push('/support/issue');
 
   return (
@@ -84,7 +83,7 @@ export default function SupportScreen() {
             subNoWrap
             padV={12}
             right={<Badge>~4 hrs</Badge>}
-            onPress={soon}
+            onPress={() => Linking.openURL('mailto:help@spicekart.com.au?subject=Help%20with%20my%20order').catch(() => flash('No email app found'))}
           />
           <Row
             icon="phone"
@@ -94,7 +93,7 @@ export default function SupportScreen() {
             subNoWrap
             padV={12}
             right={<Badge>24/7</Badge>}
-            onPress={soon}
+            onPress={() => Linking.openURL('tel:1800774235').catch(() => flash('Calling is not available on this device'))}
           />
         </Section>
 

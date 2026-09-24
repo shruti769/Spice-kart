@@ -1,12 +1,13 @@
-import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { AuthHero, SHEET_OVERLAP } from '@/components/auth/auth-hero';
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
-import { Grad, Photo, Tap, Txt, usePad } from '@/components/ui/primitives';
+import { Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { LOCAL, photo } from '@/data/catalog';
 import { useApp } from '@/store/app-store';
 
 function AppleIcon() {
@@ -28,12 +29,27 @@ function GoogleIcon() {
   );
 }
 
-const goOtp = () => router.push('/otp');
-const HERO_ROWS = [
-  ['yogurt', 'broccoli', 'onion', 'snack'],
-  ['salt', 'olive,oil', 'butter', 'yogurt'],
-  ['yogurt', 'broccoli', 'onion', 'snack'],
-];
+/**
+ * Demo sign-in: any 9-digit number after +61 is accepted. Real verification (e.g. the
+ * Australian "starts with 4" rule and the SMS check) belongs to the backend integration.
+ */
+const isValidMobile = (digits: string) => /^\d{9}$/.test(digits);
+
+/** iOS number/phone pads have no return key, so iOS adds a floating "Done" bar; this keyboard has its own return key. */
+const NUMBER_KEYBOARD = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'phone-pad';
+
+/** Keep digits only, drop a leading 0 ("0412…" → "412…") and cap at 9 digits. */
+const cleanMobile = (value: string) => value.replace(/\D/g, '').replace(/^0/, '').slice(0, 9);
+
+/** "412908344" → "412 908 344". */
+const formatMobile = (digits: string) => digits.replace(/(\d{3})(?=\d)/g, '$1 ');
+
+/** Social sign-in skips the SMS step and goes straight to the address picker. */
+function socialSignIn(provider: string) {
+  useApp.getState().flash('Signed in with ' + provider);
+  if (router.canDismiss()) router.dismissAll();
+  router.replace('/location');
+}
 
 // Use vector artwork so the flag never depends on the text font's emoji support.
 function AustraliaFlag() {
@@ -51,43 +67,35 @@ function AustraliaFlag() {
 
 export default function LoginScreen() {
   const { insets } = usePad();
-  const { width, height } = useWindowDimensions();
-  const heroHeight = Math.max(300, height * 0.475) + 14;
-  const tileSize = width * 0.26;
   const phone = useApp((s) => s.phone);
   const set = useApp((s) => s.set);
   const flash = useApp((s) => s.flash);
+  const [error, setError] = useState(false);
+  const digits = cleanMobile(phone);
+
+  const goOtp = () => {
+    if (!isValidMobile(digits)) {
+      setError(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
+    }
+    set({ phone: digits });
+    router.push('/otp');
+  };
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <FocusStatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
-        <View style={[styles.hero, { height: heroHeight }]}>
-          <Grad preset="hero" style={StyleSheet.absoluteFill} />
-          <View pointerEvents="none" style={styles.products}>
-            {HERO_ROWS.map((row, index) => (
-              <View key={index} style={[styles.productRow, { gap: width * 0.04, marginLeft: -width * (index === 1 ? 0.073 : 0.063) }]}>
-                {row.map((key, column) => (
-                  <Photo key={`${key}-${column}`} source={photo(key)} crop={false} style={[styles.product, { width: tileSize, height: tileSize }]} />
-                ))}
-              </View>
-            ))}
-          </View>
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.tint]} />
-          <Grad colors={['rgba(8,53,26,0)', 'rgba(8,53,26,0.42)']} style={StyleSheet.absoluteFill} />
-          <View style={styles.brand}>
-            <Image source={LOCAL.appIcon} style={styles.appIcon} accessibilityLabel="Spice Kart" />
-            <Image source={LOCAL.wordmarkLight} contentFit="contain" style={styles.wordmark} accessibilityLabel="SpiceKart" />
-          </View>
-        </View>
+        <AuthHero />
 
         <View style={[styles.sheet, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
           <View style={styles.heading}>
             <Txt style={f(700, 20, 1.3)}>Log in or sign up</Txt>
-            <Txt style={[f(400, 12, 1.5), styles.subtitle]}>Enter your mobile number - we&apos;ll text you a one-time code.</Txt>
+            <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[f(400, 12, 1.5), styles.subtitle]}>Enter your mobile number - we&apos;ll text you a one-time code.</Txt>
           </View>
 
-          <View style={styles.phoneField}>
+          <View style={[styles.phoneField, error && styles.phoneFieldError]}>
             <Tap accessibilityRole="button" accessibilityLabel="Country: Australia, plus 61" onPress={() => flash('Currently available for Australian mobile numbers (+61).')} style={styles.country}>
               <AustraliaFlag />
               <Svg width={8} height={5} viewBox="0 0 8 5"><Path d="M0 0h8L4 5z" fill="#111" /></Svg>
@@ -95,12 +103,16 @@ export default function LoginScreen() {
             <View style={styles.fieldDivider} />
             <Txt style={f(600, 14, 1.2)}>+61</Txt>
             <TextInput
-              value={phone}
-              onChangeText={(value) => set({ phone: value })}
+              value={formatMobile(digits)}
+              onChangeText={(value) => {
+                setError(false);
+                set({ phone: cleanMobile(value) });
+              }}
+              maxLength={11}
               placeholder="Enter mobile number"
               accessibilityLabel="Mobile number"
               placeholderTextColor={C.muted}
-              keyboardType="phone-pad"
+              keyboardType={NUMBER_KEYBOARD}
               textContentType="telephoneNumber"
               autoComplete="tel"
               returnKeyType="done"
@@ -111,7 +123,9 @@ export default function LoginScreen() {
             />
           </View>
 
-          <Tap accessibilityRole="button" onPress={goOtp} pressedStyle={{ backgroundColor: C.limeHover }} style={styles.continue}>
+          {error && <Txt style={[f(500, 12, 1.3), styles.error]}>Enter a 9-digit mobile number</Txt>}
+
+          <Tap accessibilityRole="button" onPress={goOtp} pressedStyle={{ backgroundColor: C.limeHover }} style={[styles.continue, !isValidMobile(digits) && styles.continueIdle]}>
             <Txt style={[f(700, 14, 1.2), { color: '#102A08' }]}>Continue</Txt>
           </Tap>
 
@@ -122,10 +136,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialRow}>
-            <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={goOtp} style={styles.social}>
+            <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => socialSignIn('Apple')} style={styles.social}>
               <AppleIcon /><Txt style={f(600, 13, 1.2)}>Apple</Txt>
             </Tap>
-            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={goOtp} style={styles.social}>
+            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => socialSignIn('Google')} style={styles.social}>
               <GoogleIcon /><Txt style={f(600, 13, 1.2)}>Google</Txt>
             </Tap>
           </View>
@@ -145,21 +159,16 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#08351A' },
   scroll: { flexGrow: 1 },
-  hero: { overflow: 'hidden', justifyContent: 'flex-end', paddingBottom: 42 },
-  products: { position: 'absolute', top: 16, right: 0, bottom: 4, left: 0, justifyContent: 'space-between' },
-  productRow: { flexDirection: 'row' },
-  product: { borderRadius: 20, backgroundColor: '#fff' },
-  tint: { backgroundColor: 'rgba(8,53,26,0.38)' },
-  brand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  appIcon: { width: 38, height: 38, borderRadius: 9 },
-  wordmark: { width: 100, height: 24 },
-  sheet: { flex: 1, marginTop: -14, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 44 },
+  sheet: { flex: 1, marginTop: -SHEET_OVERLAP, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 44 },
   heading: { gap: 6, paddingHorizontal: 6, marginBottom: 24 },
   subtitle: { color: C.muted },
   phoneField: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 54, paddingHorizontal: 16, backgroundColor: C.field, borderWidth: 1, borderColor: C.border, borderRadius: 13 },
   country: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48 },
   fieldDivider: { width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 3 },
   input: { flex: 1, minWidth: 0, height: 52, padding: 0, lineHeight: undefined, color: C.ink },
+  phoneFieldError: { borderColor: '#E0A89C', backgroundColor: '#FFFBFA' },
+  error: { color: C.danger, marginTop: 8, paddingHorizontal: 4 },
+  continueIdle: { opacity: 0.55 },
   continue: { height: 52, borderRadius: 12, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center', marginTop: 22, boxShadow: '0 7px 14px rgba(107,176,0,0.23)' },
   separator: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 22 },
   line: { flex: 1, height: 1, backgroundColor: C.divider },

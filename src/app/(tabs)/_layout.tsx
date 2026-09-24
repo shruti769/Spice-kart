@@ -11,7 +11,8 @@ export default function TabsLayout() {
       backBehavior="none"
       screenOptions={{
         headerShown: false,
-        animation: 'fade',
+        // No cross-fade: switching tabs from code (e.g. Home "See all") could leave the new tab stuck invisible.
+        animation: 'none',
         sceneStyle: { backgroundColor: C.bg },
       }}
       tabBar={({ state }) => {

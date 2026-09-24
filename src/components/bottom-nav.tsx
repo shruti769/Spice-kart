@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import {
@@ -26,39 +26,40 @@ const ITEMS: { name: TabName; label: string; Icon: typeof NavHomeIcon }[] = [
 ];
 
 /** Floating "n items · $x — View cart →" bar. */
-function CartBar() {
+export function CartBar({ showTotal = true, style }: { showTotal?: boolean; style?: StyleProp<ViewStyle> }) {
   const t = useTotals();
   return (
-    <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={{ marginHorizontal: 10, marginBottom: 8 }}>
+    <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={[{ marginHorizontal: 10, marginBottom: 8 }, style]}>
       <Grad
         preset="cartBar"
         style={{
           borderRadius: 18,
           borderWidth: 1,
           borderColor: '#D5E9B0',
-          paddingVertical: 11,
-          paddingHorizontal: 12,
+          paddingVertical: 12.5,
+          paddingHorizontal: 13,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 11,
+          gap: 13,
           boxShadow: '0 10px 24px rgba(28,60,20,0.14)',
         }}>
-        <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' }}>
           <CartIcon size={18} />
         </View>
         <View style={{ gap: 3, flexShrink: 1 }}>
-          <Txt numberOfLines={1} style={[f(700, 12.5, 1.2), { color: C.forest }]}>
-            {t.n + (t.n === 1 ? ' item' : ' items')} · {money(t.total)}
+          <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>
+            {t.n + (t.n === 1 ? ' item' : ' items')}
+            {showTotal && ' · ' + money(t.total)}
           </Txt>
-          <Txt numberOfLines={1} style={[f(500, 10, 1.2), { color: C.greenMuted }]}>
+          <Txt numberOfLines={1} style={[f(500, 11.5, 1.2), { color: C.greenMuted }]}>
             Arriving in {ETA_MINUTES} minutes
           </Txt>
         </View>
         <Tap
           onPress={() => router.push('/cart')}
           pressedStyle={{ backgroundColor: C.forestHover }}
-          style={{ marginLeft: 'auto', height: 34, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.forest, justifyContent: 'center', boxShadow: '0 4px 10px rgba(11,61,31,0.2)' }}>
-          <Txt style={[f(700, 12, 1), { color: '#fff' }]}>View cart →</Txt>
+          style={{ marginLeft: 'auto', height: 36, paddingHorizontal: 16, borderRadius: 12, backgroundColor: C.forest, justifyContent: 'center', boxShadow: '0 4px 10px rgba(11,61,31,0.2)' }}>
+          <Txt style={[f(700, 14, 1.2), { color: '#fff' }]}>View cart →</Txt>
         </Tap>
       </Grad>
     </Animated.View>
@@ -69,7 +70,7 @@ function CartBar() {
  * Bottom navigation (+ cart bar) overlaid at the bottom of Home, Categories, Search,
  * Orders, product lists and order tracking.
  */
-export function BottomNav({ active, showCartBar = true }: { active: TabName; showCartBar?: boolean }) {
+export function BottomNav({ active, showCartBar = true }: { active: TabName | null; showCartBar?: boolean }) {
   const pad = usePad();
   const t = useTotals();
   return (
@@ -82,7 +83,7 @@ export function BottomNav({ active, showCartBar = true }: { active: TabName; sho
           borderTopWidth: 1,
           borderTopColor: C.divider,
           boxShadow: '0 -6px 18px rgba(16,24,16,0.05)',
-          paddingTop: 7,
+          paddingTop: 17,
           paddingHorizontal: 4,
           paddingBottom: pad.bottom(24),
         }}>
@@ -97,7 +98,7 @@ export function BottomNav({ active, showCartBar = true }: { active: TabName; sho
               pressedStyle={{ opacity: 0.6 }}
               style={{ flex: 1, alignItems: 'center', gap: 4 }}>
               <Icon color={color} />
-              <Txt style={[f(500, 9.5, 1), { color }]}>{label}</Txt>
+              <Txt style={[f(500, 10, 1.2), { color }]}>{label}</Txt>
             </Tap>
           );
         })}

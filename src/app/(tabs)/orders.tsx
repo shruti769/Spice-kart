@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
@@ -19,9 +19,21 @@ type OrderRow = {
   live?: boolean;
 };
 
+/** Shown on the Active tab until the user places a real order, as in the design. */
+const SAMPLE_ACTIVE: OrderRow = {
+  no: 'Order #SK10482',
+  date: 'Today',
+  items: byNames(['Full Cream Milk', 'Truss Tomatoes', 'Sourdough Loaf']),
+  total: '$25.78',
+  status: 'Picking',
+  statusBg: '#F1F9E2',
+  statusColor: C.greenOk,
+  live: true,
+};
+
 const PAST: OrderRow[] = [
   {
-    no: 'Order #SK10482',
+    no: 'Order #SK10457',
     date: '14 Aug 2026',
     items: byNames(['Full Cream Milk', 'Truss Tomatoes', 'Sourdough Loaf', 'Free Range Eggs', 'Baby Spinach']),
     total: '$32.40',
@@ -32,7 +44,7 @@ const PAST: OrderRow[] = [
   {
     no: 'Order #SK10391',
     date: '7 Aug 2026',
-    items: byNames(['Basmati Rice', 'Garam Masala', 'Red Lentils', 'Brown Onions']),
+    items: byNames(['Fortune Basmati Rice', 'Garam Masala', 'Red Lentils', 'Brown Onions']),
     total: '$27.90',
     status: 'Delivered',
     statusBg: '#EEF2EC',
@@ -46,34 +58,30 @@ function OrderCard({ o }: { o: OrderRow }) {
   const reorder = () => useApp.getState().reorder(o.items.map((p) => p.id));
   const secondary = () => (o.live ? router.push('/track') : useApp.getState().flash('Receipt sent to your email'));
   return (
-    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 12, gap: 10, ...cardShadow }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ gap: 3, flexShrink: 1 }}>
-          <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>{o.no}</Txt>
-          <Txt numberOfLines={1} style={[f(400, 11, 1.2), { color: C.muted }]}>
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <View style={styles.cardTitle}>
+          <Txt numberOfLines={1} style={f(600, 14, 1.2)}>{o.no}</Txt>
+          <Txt numberOfLines={1} style={[f(400, 12, 1.25), { color: C.muted }]}>
             {o.date} · {o.items.length} items
           </Txt>
         </View>
-        <View style={{ marginLeft: 'auto', paddingVertical: 5, paddingHorizontal: 8, borderRadius: 5, backgroundColor: o.statusBg }}>
-          <Txt numberOfLines={1} style={[f(600, 10.5, 1), { color: o.statusColor }]}>{o.status}</Txt>
+        <View style={[styles.status, { backgroundColor: o.statusBg }]}>
+          <Txt numberOfLines={1} style={[f(600, 12.5, 1.2), { color: o.statusColor }]}>{o.status}</Txt>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+      <View style={styles.items}>
         {o.items.slice(0, 4).map((p) => (
-          <Photo key={p.id} source={p.img} style={{ width: 38, height: 38, borderRadius: 6 }} />
+          <Photo key={p.id} source={p.img} crop={typeof p.img === 'string'} style={styles.thumb} />
         ))}
-        <Txt style={[f(700, 14, 1), { marginLeft: 'auto' }]}>{o.total}</Txt>
+        <Txt style={[f(700, 16.5, 1.2), { marginLeft: 'auto' }]}>{o.total}</Txt>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, paddingTop: 2, borderTopWidth: 1, borderTopColor: C.dividerSoft }}>
-        <Tap
-          onPress={reorder}
-          style={{ flex: 1, height: 36, marginTop: 8, borderWidth: 1, borderColor: C.limeBorder, backgroundColor: C.lime, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt style={[f(700, 12, 1), { color: C.forest }]}>Reorder</Txt>
+      <View style={styles.actions}>
+        <Tap onPress={reorder} pressedStyle={{ backgroundColor: C.limeHover }} style={[styles.button, styles.reorder]}>
+          <Txt style={[f(700, 13.5, 1.2), { color: C.forest }]}>Reorder</Txt>
         </Tap>
-        <Tap
-          onPress={secondary}
-          style={{ flex: 1, height: 36, marginTop: 8, borderWidth: 1, borderColor: C.border, backgroundColor: '#fff', borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt style={f(600, 12, 1)}>{o.live ? 'Track' : 'View receipt'}</Txt>
+        <Tap onPress={secondary} pressedStyle={{ backgroundColor: C.field }} style={[styles.button, styles.secondary]}>
+          <Txt style={f(600, 13.5, 1.2)}>{o.live ? 'Track' : 'View receipt'}</Txt>
         </Tap>
       </View>
     </View>
@@ -101,14 +109,14 @@ export default function OrdersScreen() {
               live: true,
             },
           ]
-        : []
+        : [SAMPLE_ACTIVE]
       : PAST;
 
   return (
     <Screen>
-      <View style={{ backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.divider, paddingTop: pad.top(54), paddingHorizontal: 14, gap: 10 }}>
-        <Txt style={f(700, 16, 1.2)}>Your orders</Txt>
-        <View style={{ flexDirection: 'row', gap: 16 }}>
+      <View style={[styles.header, { paddingTop: pad.top(75) }]}>
+        <Txt style={f(700, 16.5, 1.2)}>Your orders</Txt>
+        <View style={styles.tabs}>
           {TABS.map((t) => {
             const on = tab === t;
             return (
@@ -118,8 +126,8 @@ export default function OrdersScreen() {
                 accessibilityState={{ selected: on }}
                 onPress={() => set({ ordersTab: t })}
                 pressedStyle={{ opacity: 0.6 }}
-                style={{ borderBottomWidth: 2, borderBottomColor: on ? '#fff' : 'transparent', paddingHorizontal: 2, paddingBottom: 9 }}>
-                <Txt style={[f(600, 12.5, 1), { color: on ? C.greenDeep : '#5E7266' }]}>{t}</Txt>
+                style={styles.tab}>
+                <Txt style={[f(600, 13.5, 1.2), { color: on ? C.greenDeep : '#5E7266' }]}>{t}</Txt>
               </Tap>
             );
           })}
@@ -127,7 +135,7 @@ export default function OrdersScreen() {
       </View>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 120 }}
+        contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}>
         <Animated.View key={tab} entering={FadeIn.duration(180)} style={{ gap: 10 }}>
           {list.length === 0 && (
@@ -151,3 +159,20 @@ export default function OrdersScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { backgroundColor: '#fff', paddingHorizontal: 24, paddingBottom: 20, gap: 10 },
+  tabs: { flexDirection: 'row', gap: 17 },
+  tab: { paddingHorizontal: 2, paddingBottom: 9 },
+  list: { paddingTop: 2, paddingHorizontal: 18, paddingBottom: 120 },
+  card: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, paddingTop: 12, paddingHorizontal: 13, paddingBottom: 12, gap: 11, ...cardShadow },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardTitle: { gap: 2, flexShrink: 1 },
+  status: { marginLeft: 'auto', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 5 },
+  items: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  thumb: { width: 39, height: 39, borderRadius: 6 },
+  actions: { flexDirection: 'row', gap: 8, marginHorizontal: 3, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.divider },
+  button: { flex: 1, height: 37, borderWidth: 1, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  reorder: { borderColor: C.limeBorder, backgroundColor: C.lime },
+  secondary: { borderColor: C.border, backgroundColor: '#fff' },
+});

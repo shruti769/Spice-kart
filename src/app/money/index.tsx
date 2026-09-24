@@ -7,7 +7,7 @@ import { Card, CardGlyph, Footer, IconBox, PrimaryButton, SectionLabel, useWalle
 import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { useApp } from '@/store/app-store';
+import { brandName, useApp, useDefaultCard } from '@/store/app-store';
 
 const PRESETS = [10, 25, 50, 100];
 
@@ -22,6 +22,7 @@ const WALLET_TX = [
 export default function MoneyScreen() {
   const { walletStr, amountStr, amountText } = useWalletVals();
   const set = useApp((s) => s.set);
+  const card = useDefaultCard();
 
   return (
     <Screen>
@@ -126,9 +127,9 @@ export default function MoneyScreen() {
               </IconBox>
               <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
                 <Txt numberOfLines={1} style={f(500, 12.5, 1.2)}>
-                  Visa · 4417
+                  {brandName(card) + ' · ' + card.last4}
                 </Txt>
-                <Txt style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>Expires 09/28</Txt>
+                <Txt style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>Expires {card.exp}</Txt>
               </View>
               <Txt numberOfLines={1} style={[f(400, 11, 1), { color: C.muted2 }]}>
                 Default

@@ -6,7 +6,6 @@ import { Chip, FooterBar, OutlineButton, SearchButton } from '@/components/help/
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { useApp } from '@/store/app-store';
 
 const CHAPTERS = ['1. Cancelling', '2. Refunds', '3. Fresh items', '4. Disputes'];
 
@@ -15,7 +14,6 @@ const para = [f(400, 12.5, 1.75), { color: '#4A4A45' }];
 
 /** Refund & cancellation policy (`sPolicy`). */
 export default function PolicyScreen() {
-  const flash = useApp((s) => s.flash);
   const scroll = useRef<ScrollView>(null);
   const [chapter, setChapter] = useState(0);
   /** y offsets of the section headings inside the scroll content. */
@@ -37,7 +35,7 @@ export default function PolicyScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 20, gap: 12 }}
         showsVerticalScrollIndicator={false}>
-        <SearchButton placeholder="Search within this policy" onPress={() => flash('Coming soon')} />
+        <SearchButton placeholder="Search within this policy" onPress={() => router.push('/help/search')} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

@@ -7,7 +7,7 @@ import { Card, CardGlyph, Footer, IconBox, PrimaryButton, SecureNote, SectionLab
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { useApp } from '@/store/app-store';
+import { brandName, useApp } from '@/store/app-store';
 
 const AppleGlyph = () => (
   <Svg width={15} height={15} viewBox="0 0 18 18" fill="none">
@@ -30,10 +30,6 @@ const GoogleGlyph = () => (
 
 type Method = { title: string; sub: string; icon: ReactNode };
 
-const CARDS: Method[] = [
-  { title: 'Visa ending 4417', sub: 'Expires 09/28 · default', icon: <CardGlyph /> },
-  { title: 'Mastercard ending 8802', sub: 'Expires 03/27', icon: <CardGlyph /> },
-];
 const FAST: Method[] = [
   { title: 'Apple Pay', sub: 'Fastest · Face ID', icon: <AppleGlyph /> },
   { title: 'Google Pay', sub: 'Linked to your account', icon: <GoogleGlyph /> },
@@ -84,6 +80,13 @@ export default function PayMethodScreen() {
   const { amountStr } = useWalletVals();
   const payIdx = useApp((s) => s.payIdx);
   const set = useApp((s) => s.set);
+  const saved = useApp((s) => s.cards);
+  const defaultCard = useApp((s) => s.defaultCard);
+  const cards: Method[] = saved.map((c, i) => ({
+    title: brandName(c) + ' ending ' + c.last4,
+    sub: 'Expires ' + c.exp + (i === defaultCard ? ' · default' : ''),
+    icon: <CardGlyph />,
+  }));
 
   return (
     <Screen>
@@ -95,8 +98,8 @@ export default function PayMethodScreen() {
         <View style={{ gap: 7 }}>
           <SectionLabel>SAVED CARDS</SectionLabel>
           <Card>
-            {CARDS.map((m, i) => (
-              <MethodRow key={m.title} m={m} on={payIdx === i} onPress={() => set({ payIdx: i })} />
+            {cards.map((m, i) => (
+              <MethodRow key={m.title + i} m={m} on={payIdx === i} onPress={() => set({ payIdx: i })} />
             ))}
           </Card>
         </View>
@@ -104,7 +107,7 @@ export default function PayMethodScreen() {
           <SectionLabel>FAST CHECKOUT</SectionLabel>
           <Card>
             {FAST.map((m, i) => (
-              <MethodRow key={m.title} m={m} on={payIdx === i + 2} onPress={() => set({ payIdx: i + 2 })} />
+              <MethodRow key={m.title} m={m} on={payIdx === i + cards.length} onPress={() => set({ payIdx: i + cards.length })} />
             ))}
           </Card>
         </View>
@@ -140,7 +143,7 @@ export default function PayMethodScreen() {
         <SecureNote />
       </ScrollView>
       <Footer>
-        <PrimaryButton label="Continue" onPress={() => router.push('/money/confirm')} />
+        <PrimaryButton tone="lime" label="Continue" onPress={() => router.push('/money/confirm')} />
       </Footer>
     </Screen>
   );

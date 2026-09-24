@@ -71,6 +71,7 @@ const DocIcon = () => (
 /** Privacy & data settings (prototype `sPrivacy`). */
 export default function PrivacyScreen() {
   const flash = useApp((s) => s.flash);
+  const userEmail = useApp((s) => s.user.email);
   const toggle = useApp((s) => s.togglePref);
   const push = usePref('push', true);
   const email = usePref('email', true);
@@ -98,7 +99,7 @@ export default function PrivacyScreen() {
         </Section>
 
         <Section label="YOUR DATA">
-          <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed within 48 hours" onPress={() => flash('Coming soon')} />
+          <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed within 48 hours" onPress={() => (userEmail ? flash('We’ll email a copy to ' + userEmail + ' within 48 hours') : flash('Add an email in Personal details to receive your data'))} />
           <LinkRow icon={<DocIcon />} title="Privacy policy" sub="How we collect and use your data" onPress={() => router.push('/policy')} />
         </Section>
 

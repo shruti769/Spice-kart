@@ -16,7 +16,11 @@
         "backgroundColor": "#08351A",
         "foregroundImage": "./assets/images/brand/app-icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.komal92.spicekart"
     },
     "web": {
       "output": "static",
@@ -32,11 +36,25 @@
           "imageWidth": 88
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spice Kart uses your photos so you can set a profile picture or attach a photo to a support request.",
+          "cameraPermission": "Spice Kart uses the camera so you can take a profile picture or a photo of an item for support."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b986aec1-71be-4364-9117-95821d988081"
+      }
     }
   }
 }

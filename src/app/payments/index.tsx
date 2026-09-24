@@ -16,12 +16,9 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Screen, Txt } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
 import { WALLET_BALANCE } from '@/data/catalog';
-import { useApp } from '@/store/app-store';
+import { brandName, useApp, type SavedCard } from '@/store/app-store';
 
-const CARDS = [
-  { brand: 'VISA', exp: 'Exp 09/28', last4: '4417', tint: '#F3F7EC', isDefault: true },
-  { brand: 'MASTERCARD', exp: 'Exp 03/27', last4: '8802', tint: '#F2F4F8', isDefault: false },
-] as const;
+const TINTS: Record<SavedCard['brand'], string> = { VISA: '#F3F7EC', MASTERCARD: '#F2F4F8', AMEX: '#EEF4F7' };
 
 const angle = cssAngle(120);
 
@@ -29,17 +26,27 @@ const angle = cssAngle(120);
 export default function PaymentsScreen() {
   const flash = useApp((s) => s.flash);
   const wallet = useApp((s) => s.wallet);
-  const soon = () => flash('Coming soon');
+  const cards = useApp((s) => s.cards);
+  const defaultCard = useApp((s) => s.defaultCard);
+  const setDefault = (i: number) => {
+    useApp.getState().set({ defaultCard: i });
+    flash(brandName(cards[i]) + ' ending ' + cards[i].last4 + ' is now your default');
+  };
+  const remove = (i: number) => {
+    if (cards.length <= 1) return flash('Keep at least one card on file');
+    useApp.getState().removeCard(i);
+    flash('Card removed');
+  };
   const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0) + '.00';
 
   return (
     <Screen>
-      <ScreenHeader variant="tint" title="Payment methods" subtitle="2 cards saved" />
+      <ScreenHeader variant="tint" title="Payment methods" subtitle={cards.length + (cards.length === 1 ? ' card saved' : ' cards saved')} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={scrollContent} showsVerticalScrollIndicator={false}>
-        {CARDS.map((c) => (
+        {cards.map((c, i) => (
           <Grad
-            key={c.last4}
-            colors={[c.tint, '#FFFFFF']}
+            key={c.brand + c.last4 + i}
+            colors={[TINTS[c.brand], '#FFFFFF']}
             {...angle}
             style={[{ borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E4E4DF' }, cardShadow]}>
             <View style={{ padding: 14, gap: 16 }}>
@@ -47,9 +54,9 @@ export default function PaymentsScreen() {
                 <Txt numberOfLines={1} style={[f(700, 12, 1), { letterSpacing: 1 }]}>
                   {c.brand}
                 </Txt>
-                {c.isDefault && <DefaultBadge />}
+                {i === defaultCard && <DefaultBadge />}
                 <Txt numberOfLines={1} style={[f(400, 10.5, 1), { marginLeft: 'auto', color: C.muted2 }]}>
-                  {c.exp}
+                  {'Exp ' + c.exp}
                 </Txt>
               </View>
               <Txt numberOfLines={1} style={[f(600, 16, 1), { letterSpacing: 2.5 }]}>
@@ -57,9 +64,9 @@ export default function PaymentsScreen() {
               </Txt>
             </View>
             <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 12 }}>
-              <TileButton label="Edit" onPress={soon} height={32} radius={8} size={11} />
-              {!c.isDefault && <TileButton label="Set default" onPress={soon} height={32} radius={8} size={11} />}
-              <TrashButton label="Remove card" onPress={soon} width={36} height={32} radius={8} />
+              <TileButton label="Edit" onPress={() => router.push('/payments/add-card')} height={32} radius={8} size={11} />
+              {i !== defaultCard && <TileButton label="Set default" onPress={() => setDefault(i)} height={32} radius={8} size={11} />}
+              <TrashButton label="Remove card" onPress={() => remove(i)} width={36} height={32} radius={8} />
             </View>
           </Grad>
         ))}

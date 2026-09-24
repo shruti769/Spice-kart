@@ -6,11 +6,13 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { Card, Footer, KV, PrimaryButton, SecondaryButton, useWalletVals } from '@/components/money/parts';
 import { Screen, Txt, usePad } from '@/components/ui/primitives';
 import { f } from '@/constants/theme';
+import { useTopUpMethod } from '@/store/app-store';
 
 /** Top-up declined (prototype `sMoneyFail`). */
 export default function MoneyFailedScreen() {
   const pad = usePad();
   const { amountStr, walletStr } = useWalletVals();
+  const method = useTopUpMethod();
   const openPayMethod = () => router.push('/money/pay-method');
 
   return (
@@ -47,7 +49,7 @@ export default function MoneyFailedScreen() {
 
         <Card>
           <KV k="Attempted amount" v={amountStr} weight={600} />
-          <KV k="Card" v="Visa · 4417" />
+          <KV k="Card" v={method.short} />
           <KV k="Balance" v={`${walletStr}.00 · unchanged`} last />
         </Card>
 

@@ -6,12 +6,13 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { resetTo } from '@/lib/nav';
-import { useApp } from '@/store/app-store';
+import { useApp, useTopUpMethod } from '@/store/app-store';
 
 /** Review the top-up before paying (prototype `sMoneyConfirm`). */
 export default function MoneyConfirmScreen() {
   const { amountStr, walletStr, newBalance, bal, amt } = useWalletVals();
   const openPayMethod = () => router.push('/money/pay-method');
+  const method = useTopUpMethod();
 
   const openMoneySuccess = () => {
     useApp.getState().set({ wallet: bal + amt });
@@ -51,10 +52,10 @@ export default function MoneyConfirmScreen() {
             </IconBox>
             <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
               <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>
-                Visa ending 4417
+                {method.title}
               </Txt>
               <Txt numberOfLines={1} style={[f(400, 10.5, 1.2), { color: C.muted2 }]}>
-                Expires 09/28
+                {method.sub}
               </Txt>
             </View>
             <Tap onPress={openPayMethod} hitSlop={8}>

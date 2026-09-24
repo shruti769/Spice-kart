@@ -12,7 +12,9 @@ export type Category = {
   /** Top-down tint used behind the product list header. */
   tint: [string, string, string];
   count: number;
-  img: string;
+  img: string | number;
+  /** Pastel tile colour behind the (transparent) basket artwork. */
+  bg: string;
 };
 
 export type Product = {
@@ -25,7 +27,9 @@ export type Product = {
   price: number;
   orig: number;
   kw: string;
-  img: string;
+  img: string | number;
+  /** Sub-category shown in the category sidebar (see `subcategoriesOf`). */
+  sub: string;
   rating: string;
   out: boolean;
   desc: string;
@@ -112,6 +116,34 @@ export function money(v: number) {
   return '$' + v.toFixed(2);
 }
 
+/** Pastel tile colours from the Categories design, behind each transparent basket. */
+const CAT_BG: Record<CategoryId, string> = {
+  dairy: '#EFFACF', bakery: '#F6F4B5', produce: '#F6ECEF', flours: '#FBF7E0', pulses: '#ECF1E7', spice: '#EDF5F8',
+  grains: '#F7E2CE', oil: '#FAF6CF', snack: '#E6FEF3', instant: '#F3F2EC', tea: '#EFFACF', condiments: '#FCEDED',
+  sweeteners: '#DFF3B4', frozen: '#E7F5FE', fasting: '#E9FEF6', general: '#F1EFE7', pooja: '#EEEEFE',
+};
+
+/** Basket artwork for each category (transparent PNGs from the design). */
+const CAT_ART: Record<CategoryId, number> = {
+  dairy: require('@/assets/images/categories/dairy.png'),
+  bakery: require('@/assets/images/categories/bakery.png'),
+  produce: require('@/assets/images/categories/produce.png'),
+  flours: require('@/assets/images/categories/flours.png'),
+  pulses: require('@/assets/images/categories/pulses.png'),
+  spice: require('@/assets/images/categories/spice.png'),
+  grains: require('@/assets/images/categories/grains.png'),
+  oil: require('@/assets/images/categories/oil.png'),
+  snack: require('@/assets/images/categories/snack.png'),
+  instant: require('@/assets/images/categories/instant.png'),
+  tea: require('@/assets/images/categories/tea.png'),
+  condiments: require('@/assets/images/categories/condiments.png'),
+  sweeteners: require('@/assets/images/categories/sweeteners.png'),
+  frozen: require('@/assets/images/categories/frozen.png'),
+  fasting: require('@/assets/images/categories/fasting.png'),
+  general: require('@/assets/images/categories/general.png'),
+  pooja: require('@/assets/images/categories/pooja.png'),
+};
+
 type CatDef = [CategoryId, string, string, string, [string, string, string]];
 const CAT_DEFS: CatDef[] = [
   ['dairy', 'Dairy & Refrigerated', 'Dairy', 'milk', ['#E7F0FB', '#F5F9FE', '#FFFFFF']],
@@ -134,13 +166,167 @@ const CAT_DEFS: CatDef[] = [
 ];
 
 type Raw = [string, string, string, number, number, string];
+
+/** Local product shots from the Home design, keyed by product name. */
+const ART: Record<string, number> = {
+  'Patanjali Besan': require('@/assets/images/home/products/besan.png'),
+  'Aashirvaad Atta': require('@/assets/images/home/products/atta.png'),
+  'Tata Salt': require('@/assets/images/home/products/salt.png'),
+  'White Sandwich Loaf': require('@/assets/images/home/products/bread.png'),
+  'Mother Dairy Salted Butter': require('@/assets/images/home/products/butter.png'),
+  'Fortune Basmati Rice': require('@/assets/images/home/products/rice.png'),
+  'Cheese Block': require('@/assets/images/home/products/cheese.png'),
+  'Extra Virgin Olive Oil': require('@/assets/images/home/products/oil.png'),
+  'Pink Lady Apples': require('@/assets/images/home/products/apples.png'),
+  'Laundry Liquid': require('@/assets/images/home/products/laundry.png'),
+  'Truss Tomatoes': require('@/assets/images/products/tomatoes.png'),
+  'Washed Potatoes': require('@/assets/images/products/potatoes.png'),
+  'Brown Onions': require('@/assets/images/products/onions.png'),
+  Carrots: require('@/assets/images/products/carrots.png'),
+  'Vadilal Methi': require('@/assets/images/products/methi.png'),
+  'Ashoka Hara Bhara Kabab': require('@/assets/images/products/kabab.png'),
+  'Bikaji Samosa': require('@/assets/images/products/bikaji-samosa.png'),
+  'Vadilal Chauli': require('@/assets/images/products/chauli.png'),
+  'Ashoka Punjabi Samosa': require('@/assets/images/products/punjabi-samosa.png'),
+  'Vadilal Aloo Tikki': require('@/assets/images/products/aloo-tikki.png'),
+  'Vadilal Arwi': require('@/assets/images/products/arwi.png'),
+  'Vadilal Bhindi Cut': require('@/assets/images/products/bhindi.png'),
+  'Tomato Ketchup': require('@/assets/images/products/ketchup.png'),
+};
+
+/**
+ * Sidebar sub-categories per category: [name, product names]. A product belongs to the
+ * first sub-category that lists it. Tiles use `SUB_ART` when the design supplies one.
+ */
+const SUBS: Record<CategoryId, [string, string[]][]> = {
+  dairy: [
+    ['Milk', ['Full Cream Milk', 'Low Fat Milk', 'Almond Milk', 'Oat Milk']],
+    ['Curd & Cheese', ['Greek Yoghurt', 'Mother Dairy Salted Butter', 'Cheese Block', 'Paneer', 'Thickened Cream']],
+    ['Eggs', ['Free Range Eggs']],
+  ],
+  bakery: [
+    ['Breads', ['White Sandwich Loaf', 'Wholemeal Loaf', 'Sourdough Loaf']],
+    ['Buns & Pav', ['Burger Buns', 'Pav Buns']],
+    ['Croissants & Wraps', ['Butter Croissants', 'Wholegrain Wraps']],
+  ],
+  produce: [
+    ['Vegetables', ['Truss Tomatoes', 'Washed Potatoes', 'Brown Onions', 'Carrots', 'Red Capsicum', 'Broccoli', 'Cauliflower', 'Lebanese Cucumber']],
+    ['Fruits', ['Cavendish Bananas', 'Pink Lady Apples', 'Navel Oranges', 'Kensington Mangoes', 'Seedless Grapes', 'Strawberries', 'Hass Avocados', 'Lemons']],
+    ['Coriander & others', ['Baby Spinach', 'Garlic', 'Ginger', 'Green Chillies', 'Fresh Coriander']],
+  ],
+  flours: [
+    ['Atta & Maida', ['Aashirvaad Atta', 'Plain Flour', 'Maida']],
+    ['Besan & Rice Flour', ['Patanjali Besan', 'Rice Flour']],
+  ],
+  pulses: [
+    ['Dals', ['Toor Dal', 'Red Lentils', 'Moong Dal', 'Chana Dal', 'Urad Dal']],
+    ['Beans', ['Canned Chickpeas', 'Rajma Kidney Beans']],
+  ],
+  spice: [
+    ['Powders', ['Ground Turmeric', 'Ground Coriander', 'Chilli Powder']],
+    ['Whole Spices', ['Cumin Seeds', 'Black Peppercorns', 'Mustard Seeds']],
+    ['Masalas', ['Garam Masala', 'Pav Bhaji Masala']],
+  ],
+  grains: [
+    ['Rice', ['Fortune Basmati Rice', 'Sona Masoori Rice']],
+    ['Pasta', ['Vetta Pasta']],
+    ['Poha & Oats', ['Poha (Flattened Rice)', 'Semolina (Sooji)', 'Rolled Oats']],
+  ],
+  oil: [
+    ['Oils', ['Extra Virgin Olive Oil', 'Sunflower Oil', 'Mustard Oil']],
+    ['Ghee', ['Pure Cow Ghee']],
+  ],
+  snack: [
+    ['Chips & Namkeen', ['Sea Salt Chips', 'Masala Namkeen Mix', 'Popcorn', 'Papad']],
+    ['Biscuits', ['Choc Chip Biscuits', 'Water Crackers']],
+    ['Nuts', ['Mixed Nuts']],
+  ],
+  instant: [
+    ['Noodles & Soups', ['Instant Noodles', 'Cup Soup']],
+    ['Ready Meals', ['Ready Paratha', 'Dal Makhani Ready Meal', 'Instant Upma Mix']],
+  ],
+  tea: [
+    ['Tea & Coffee', ['Masala Chai', 'Assam Tea Leaves', 'Filter Coffee Powder', 'Green Tea Bags']],
+    ['Drinks', ['Cola Soft Drink', 'Mango Juice']],
+  ],
+  condiments: [
+    ['Pickles & Pastes', ['Mango Pickle', 'Ginger Garlic Paste', 'Tamarind Paste']],
+    ['Sauces', ['Tomato Ketchup', 'Diced Tomatoes']],
+    ['Salt', ['Tata Salt']],
+  ],
+  sweeteners: [
+    ['Sugar & Honey', ['Raw Sugar', 'Jaggery Blocks', 'Honey']],
+    ['Baking', ['Baking Powder', 'Vanilla Essence']],
+  ],
+  frozen: [
+    ['Food', ['Ashoka Hara Bhara Kabab', 'Bikaji Samosa', 'Ashoka Punjabi Samosa', 'Vadilal Aloo Tikki', 'Frozen Paratha']],
+    ['Vegetables', ['Vadilal Methi', 'Vadilal Chauli', 'Vadilal Arwi', 'Vadilal Bhindi Cut']],
+  ],
+  fasting: [
+    ['Fasting Flours', ['Rajgira Flour', 'Singhare Atta']],
+    ['Others', ['Sabudana (Tapioca)', 'Rock Salt (Sendha)']],
+  ],
+  general: [
+    ['Cleaning', ['Dishwashing Liquid', 'Laundry Liquid', 'Multipurpose Spray', 'Facial Tissues', 'Paper Towels']],
+    ['Personal Care', ['Daily Shampoo', 'Soap Bars', 'Toothpaste']],
+  ],
+  pooja: [['Pooja Essentials', ['Agarbatti Incense', 'Camphor Tablets', 'Pooja Thali Set', 'Cotton Wicks']]],
+};
+
+/** Sidebar tile artwork from the category designs, keyed by `<category>/<sub-category>`. */
+const SUB_ART: Record<string, number> = {
+  'produce/All': require('@/assets/images/subcats/produce-all.png'),
+  'produce/Vegetables': require('@/assets/images/subcats/produce-veg.png'),
+  'produce/Fruits': require('@/assets/images/subcats/produce-fruits.png'),
+  'produce/Coriander & others': require('@/assets/images/subcats/produce-herbs.png'),
+  'frozen/All': require('@/assets/images/subcats/frozen-all.png'),
+  'frozen/Food': require('@/assets/images/subcats/frozen-food.png'),
+  'frozen/Vegetables': require('@/assets/images/subcats/frozen-veg.png'),
+  'dairy/Milk': require('@/assets/images/home/cats/dairy.png'),
+  'dairy/Curd & Cheese': require('@/assets/images/home/products/cheese.png'),
+  'dairy/Eggs': require('@/assets/images/categories/dairy.png'),
+  'bakery/Breads': require('@/assets/images/home/products/bread.png'),
+  'bakery/Buns & Pav': require('@/assets/images/categories/bakery.png'),
+  'bakery/Croissants & Wraps': require('@/assets/images/home/cats/bakery.png'),
+  'flours/Atta & Maida': require('@/assets/images/home/products/atta.png'),
+  'flours/Besan & Rice Flour': require('@/assets/images/home/products/besan.png'),
+  'pulses/Dals': require('@/assets/images/categories/pulses.png'),
+  'pulses/Beans': require('@/assets/images/home/cats/flours.png'),
+  'spice/Powders': require('@/assets/images/categories/spice.png'),
+  'spice/Whole Spices': require('@/assets/images/home/cats/oil.png'),
+  'spice/Masalas': require('@/assets/images/categories/spice.png'),
+  'grains/Rice': require('@/assets/images/home/products/rice.png'),
+  'grains/Pasta': require('@/assets/images/categories/grains.png'),
+  'grains/Poha & Oats': require('@/assets/images/home/cats/dryfruits.png'),
+  'oil/Oils': require('@/assets/images/home/products/oil.png'),
+  'oil/Ghee': require('@/assets/images/home/cats/oil.png'),
+  'snack/Chips & Namkeen': require('@/assets/images/home/cats/chips.png'),
+  'snack/Biscuits': require('@/assets/images/home/cats/bakery.png'),
+  'snack/Nuts': require('@/assets/images/home/cats/dryfruits.png'),
+  'instant/Noodles & Soups': require('@/assets/images/home/cats/instant.png'),
+  'instant/Ready Meals': require('@/assets/images/categories/instant.png'),
+  'tea/Tea & Coffee': require('@/assets/images/home/cats/tea.png'),
+  'tea/Drinks': require('@/assets/images/categories/tea.png'),
+  'condiments/Pickles & Pastes': require('@/assets/images/categories/condiments.png'),
+  'condiments/Sauces': require('@/assets/images/home/cats/sauces.png'),
+  'condiments/Salt': require('@/assets/images/home/products/salt.png'),
+  'sweeteners/Sugar & Honey': require('@/assets/images/categories/sweeteners.png'),
+  'sweeteners/Baking': require('@/assets/images/home/cats/sweets.png'),
+  'fasting/Fasting Flours': require('@/assets/images/home/cats/flours.png'),
+  'fasting/Others': require('@/assets/images/categories/fasting.png'),
+  'general/Cleaning': require('@/assets/images/home/products/laundry.png'),
+  'general/Personal Care': require('@/assets/images/categories/general.png'),
+  'pooja/Pooja Essentials': require('@/assets/images/categories/pooja.png'),
+};
+
+const subOf = (cat: CategoryId, name: string) => SUBS[cat].find(([, names]) => names.includes(name))?.[0] ?? '';
 const RAW: Record<CategoryId, Raw[]> = {
   dairy: [
     ['Full Cream Milk', 'Dairyfields', '2L', 4.5, 5.2, 'milk,bottle'],
     ['Low Fat Milk', 'Dairyfields', '2L', 4.4, 0, 'milk,carton'],
     ['Greek Yoghurt', 'Dairyfields', '1kg', 6.9, 0, 'yogurt'],
-    ['Salted Butter', 'Dairyfields', '250g', 4.8, 0, 'butter'],
-    ['Tasty Cheese Block', 'Dairyfields', '500g', 8.5, 9.9, 'cheese'],
+    ['Mother Dairy Salted Butter', 'Mother Dairy', '250g', 6.95, 0, 'butter'],
+    ['Cheese Block', 'Britannia', '500g', 8.5, 9.9, 'cheese'],
     ['Paneer', 'Dairyfields', '500g', 7.9, 0, 'cheese'],
     ['Thickened Cream', 'Dairyfields', '300ml', 3.2, 0, 'cream,dairy'],
     ['Free Range Eggs', 'Hen & Field', '12 pack', 7.2, 0, 'eggs'],
@@ -180,9 +366,9 @@ const RAW: Record<CategoryId, Raw[]> = {
     ['Lemons', 'Sunny Grove', '3 pack', 3.2, 0, 'lemon'],
   ],
   flours: [
-    ['Chakki Atta', 'Pantry Co', '5kg', 12.9, 14.5, 'flour'],
+    ['Aashirvaad Atta', 'Aashirvaad', '2Kg', 4.9, 5.9, 'flour'],
     ['Plain Flour', 'Pantry Co', '1kg', 2.2, 0, 'flour'],
-    ['Besan (Gram Flour)', 'Pantry Co', '1kg', 4.6, 0, 'flour'],
+    ['Patanjali Besan', 'Patanjali', '500g', 4.5, 5.2, 'flour'],
     ['Maida', 'Pantry Co', '1kg', 2.8, 0, 'flour'],
     ['Rice Flour', 'Pantry Co', '1kg', 3.4, 0, 'flour'],
   ],
@@ -206,9 +392,9 @@ const RAW: Record<CategoryId, Raw[]> = {
     ['Pav Bhaji Masala', 'Spice Kart Select', '100g', 4, 0, 'garam,masala'],
   ],
   grains: [
-    ['Basmati Rice', 'Pantry Co', '5kg', 14.9, 17.5, 'basmati,rice'],
+    ['Fortune Basmati Rice', 'Fortune', '5Kg', 10.9, 12.8, 'basmati,rice'],
     ['Sona Masoori Rice', 'Pantry Co', '5kg', 13.5, 0, 'basmati,rice'],
-    ['Penne Pasta', 'Pantry Co', '500g', 2.4, 0, 'pasta,penne'],
+    ['Vetta Pasta', 'Vetta', '500g', 2.4, 0, 'pasta,penne'],
     ['Poha (Flattened Rice)', 'Pantry Co', '1kg', 3.8, 0, 'rice'],
     ['Semolina (Sooji)', 'Pantry Co', '1kg', 3.2, 0, 'flour'],
     ['Rolled Oats', 'Pantry Co', '1kg', 4.4, 5, 'oats'],
@@ -248,7 +434,7 @@ const RAW: Record<CategoryId, Raw[]> = {
     ['Ginger Garlic Paste', 'Homestead', '300g', 3.6, 4.2, 'garlic'],
     ['Tomato Ketchup', 'Homestead', '500g', 3.4, 0, 'canned,tomato'],
     ['Diced Tomatoes', 'Pantry Co', '400g', 1.2, 1.6, 'canned,tomato'],
-    ['Sea Salt Flakes', 'Pantry Co', '250g', 3.9, 0, 'salt'],
+    ['Tata Salt', 'Tata', '1Kg', 7.2, 0, 'salt'],
     ['Tamarind Paste', 'Homestead', '200g', 3.8, 0, 'canned,tomato'],
   ],
   sweeteners: [
@@ -259,11 +445,15 @@ const RAW: Record<CategoryId, Raw[]> = {
     ['Vanilla Essence', 'Pantry Co', '100ml', 3.1, 0, 'sugar'],
   ],
   frozen: [
+    ['Vadilal Methi', 'Vadilal', '312g', 2.99, 0, 'spinach,leaf'],
+    ['Ashoka Hara Bhara Kabab', 'Ashoka', '12pcs', 6.99, 0, 'snack'],
+    ['Bikaji Samosa', 'Bikaji', '25pcs', 9.99, 0, 'snack'],
+    ['Vadilal Chauli', 'Vadilal', '312g', 2.99, 0, 'broccoli'],
+    ['Ashoka Punjabi Samosa', 'Ashoka', '25pcs', 18.99, 0, 'snack'],
+    ['Vadilal Aloo Tikki', 'Vadilal', '12pcs', 11.99, 0, 'potato'],
+    ['Vadilal Arwi', 'Vadilal', '312g', 2.99, 0, 'potato'],
+    ['Vadilal Bhindi Cut', 'Vadilal', '312g', 2.99, 0, 'broccoli'],
     ['Frozen Paratha', 'Frostfield', '5 pack', 5.9, 6.8, 'wrap,tortilla'],
-    ['Frozen Green Peas', 'Frostfield', '1kg', 4.4, 0, 'broccoli'],
-    ['Frozen Samosa', 'Frostfield', '12 pack', 7.2, 0, 'snack'],
-    ['Frozen Mixed Vegetables', 'Frostfield', '1kg', 4.9, 0, 'broccoli'],
-    ['Frozen Mango Pulp', 'Frostfield', '850g', 6.4, 0, 'mango'],
   ],
   fasting: [
     ['Sabudana (Tapioca)', 'Vrat Pure', '500g', 4.2, 0, 'rice'],
@@ -325,7 +515,8 @@ function build() {
         price: r[3],
         orig: r[4],
         kw: r[5],
-        img: photo(r[5]),
+        img: ART[r[0]] ?? photo(r[5]),
+        sub: subOf(id, r[0]),
         rating: (4.1 + ((n * 7) % 8) / 10).toFixed(1),
         out: r[0] === 'Kensington Mangoes' || r[0] === 'Butter Croissants',
         desc: DESC[id],
@@ -343,7 +534,8 @@ function build() {
     kw,
     tint,
     count: products.filter((p) => p.cat === id).length,
-    img: photo('cat-' + id),
+    img: CAT_ART[id],
+    bg: CAT_BG[id],
   }));
   return { products, categories };
 }
@@ -359,6 +551,14 @@ export const findCategory = (id: string) => CATEGORIES.find((c) => c.id === id);
 export const byNames = (names: string[]) =>
   names.map((n) => BY_NAME.get(n)).filter((p): p is Product => !!p);
 
+export type Subcategory = { name: string; img: string | number; bg: string };
+
+/** "All" plus the category's sub-categories, for the category sidebar. */
+export function subcategoriesOf(cat: CategoryId): Subcategory[] {
+  const fallback = CAT_ART[cat];
+  return ['All', ...SUBS[cat].map(([name]) => name)].map((name) => ({ name, img: SUB_ART[cat + '/' + name] ?? fallback, bg: CAT_BG[cat] }));
+}
+
 export function discountPct(p: Product) {
   return p.orig > 0 ? Math.round((1 - p.price / p.orig) * 100) : 0;
 }
@@ -371,9 +571,12 @@ export function searchProducts(q: string) {
   );
 }
 
-export const ADDRESSES = [
-  { tag: 'H', label: 'Home', line: '123 Collins Street, Melbourne VIC 3000' },
-  { tag: 'W', label: 'Work', line: 'Level 8, 420 Bourke Street, Melbourne VIC 3000' },
+/** A saved delivery address. `area` is the short "Suburb STATE" shown in the Home header. */
+export type Address = { tag: string; label: string; line: string; area: string };
+
+export const ADDRESSES: Address[] = [
+  { tag: 'H', label: 'Home', line: '123 Collins Street, Melbourne VIC 3000', area: 'Melbourne VIC' },
+  { tag: 'W', label: 'Work', line: 'Level 8, 420 Bourke Street, Melbourne VIC 3000', area: 'Melbourne VIC' },
 ];
 
 export const ETA_MINUTES = 25;
@@ -392,4 +595,6 @@ export const LOCAL = {
   brandSpice: require('@/assets/images/banners/brand-spice.jpg'),
   brandPantry: require('@/assets/images/banners/brand-pantry.jpg'),
   brandBakery: require('@/assets/images/banners/brand-bakery.jpg'),
+  freeDelivery: require('@/assets/images/home/free-delivery.png'),
+  brandDeals: require('@/assets/images/home/brand-deals.png'),
 };

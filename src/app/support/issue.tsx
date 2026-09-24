@@ -1,11 +1,13 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 
 import { Caption, FooterBar, Glyph, Row, Section, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { pickPhoto } from '@/lib/pick-photo';
 import { useApp } from '@/store/app-store';
 
 const ISSUES: [string, string, GlyphName][] = [
@@ -17,19 +19,12 @@ const ISSUES: [string, string, GlyphName][] = [
   ['Account issue', 'Login, details or notifications', 'user'],
 ];
 
+/** Selected: lime rounded square. Unselected: grey ring (as in the design). */
 function Radio({ on }: { on: boolean }) {
-  return (
-    <View
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        borderWidth: 2,
-        borderColor: on ? C.lime : '#C9C9C3',
-        backgroundColor: on ? C.lime : 'transparent',
-        flexShrink: 0,
-      }}
-    />
+  return on ? (
+    <View style={{ width: 20, height: 20, borderRadius: 6.5, backgroundColor: C.lime, flexShrink: 0 }} />
+  ) : (
+    <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#D6DDD6', flexShrink: 0 }} />
   );
 }
 
@@ -39,11 +34,21 @@ export default function SupportIssueScreen() {
   const set = useApp((s) => s.set);
   const flash = useApp((s) => s.flash);
   const [detail, setDetail] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const attach = async () => {
+    if (photo) {
+      setPhoto(null);
+      flash('Photo removed');
+      return;
+    }
+    const uri = await pickPhoto({ title: 'Attach a photo' });
+    if (uri) setPhoto(uri);
+  };
 
   return (
     <Screen>
       <ScreenHeader variant="tint" title="Report an issue" subtitle="Order #SK10482 · delivered today" />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 20, gap: 12 }}
@@ -94,13 +99,14 @@ export default function SupportIssueScreen() {
               ]}
             />
             <Tap
-              onPress={() => flash('Coming soon')}
+              onPress={attach}
               pressedStyle={{ borderColor: C.lime }}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 9,
-                height: 44,
+                minHeight: 44,
+                paddingVertical: photo ? 8 : 0,
                 paddingHorizontal: 12,
                 borderWidth: 1,
                 borderStyle: 'dashed',
@@ -108,9 +114,13 @@ export default function SupportIssueScreen() {
                 borderRadius: 11,
                 backgroundColor: '#fff',
               }}>
-              <Glyph name="photo" size={16} />
-              <Txt numberOfLines={1} style={[f(500, 12, 1), { color: '#7A7A75' }]}>
-                Attach a photo
+              {photo ? (
+                <Image source={{ uri: photo }} contentFit="cover" style={{ width: 44, height: 44, borderRadius: 8 }} />
+              ) : (
+                <Glyph name="photo" size={16} />
+              )}
+              <Txt numberOfLines={1} style={[f(500, 12, 1.2), { color: photo ? C.green : '#7A7A75' }]}>
+                {photo ? '1 photo attached · tap to remove' : 'Attach a photo'}
               </Txt>
             </Tap>
           </View>
@@ -119,16 +129,16 @@ export default function SupportIssueScreen() {
         <FooterBar>
           <Tap
             onPress={() => router.push('/support/chat')}
-            pressedStyle={{ backgroundColor: C.forestHover }}
+            pressedStyle={{ backgroundColor: C.limeHover }}
             style={{
               height: 48,
-              borderRadius: 11,
-              backgroundColor: C.forest,
+              borderRadius: 12,
+              backgroundColor: C.lime,
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 6px 14px rgba(11,61,31,0.18)',
+              boxShadow: '0 6px 14px rgba(107,176,0,0.24)',
             }}>
-            <Txt style={[f(700, 14, 1), { color: '#fff' }]}>Continue to chat</Txt>
+            <Txt style={[f(700, 14, 1.2), { color: C.forest }]}>Continue to chat</Txt>
           </Tap>
         </FooterBar>
       </KeyboardAvoidingView>

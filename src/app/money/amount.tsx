@@ -20,14 +20,34 @@ import { useApp } from '@/store/app-store';
 
 const PRESETS = [10, 25, 50, 100];
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'] as const;
+const MIN = 5;
+const MAX = 500;
+
+/**
+ * Apply a keypad press to the typed amount. Returns null when the key is not allowed:
+ * a second ".", a third decimal digit, or a value over the $500 top-up limit.
+ */
+function nextAmount(cur: string, k: (typeof KEYS)[number]): string | null {
+  if (k === 'del') return cur.slice(0, -1);
+  if (k === '.') {
+    if (cur.includes('.')) return null;
+    return (cur || '0') + '.';
+  }
+  const [, decimals] = cur.split('.');
+  if (decimals !== undefined && decimals.length >= 2) return null;
+  const next = cur === '0' ? k : cur + k;
+  return parseFloat(next) > MAX ? null : next;
+}
 
 /** Blinking lime caret after the amount. */
 function Caret() {
   const o = useSharedValue(1);
   useEffect(() => {
-    o.value = withRepeat(
-      withSequence(withTiming(0, { duration: 530, easing: Easing.linear }), withTiming(1, { duration: 530, easing: Easing.linear })),
-      -1,
+    o.set(
+      withRepeat(
+        withSequence(withTiming(0, { duration: 530, easing: Easing.linear }), withTiming(1, { duration: 530, easing: Easing.linear })),
+        -1,
+      ),
     );
   }, [o]);
   const style = useAnimatedStyle(() => ({ opacity: o.value > 0.5 ? 1 : 0 }));
@@ -36,13 +56,27 @@ function Caret() {
 
 /** Custom top-up amount with keypad (prototype `sAmount`). */
 export default function AmountScreen() {
-  const { amountRaw, amountHint, amountHintColor, amountText } = useWalletVals();
+  const { amountRaw, amountHint, amountHintColor, amountText, amtErr } = useWalletVals();
   const set = useApp((s) => s.set);
 
   const press = (k: (typeof KEYS)[number]) => {
-    Haptics.selectionAsync().catch(() => {});
     const cur = useApp.getState().amountText || '';
-    set({ amountText: k === 'del' ? cur.slice(0, -1) : (cur + k).slice(0, 6) });
+    const next = nextAmount(cur, k);
+    if (next === null) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      return;
+    }
+    Haptics.selectionAsync().catch(() => {});
+    set({ amountText: next });
+  };
+
+  const onContinue = () => {
+    if (amtErr) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      useApp.getState().flash('Enter an amount between $' + MIN + ' and $' + MAX);
+      return;
+    }
+    router.push('/money/confirm');
   };
 
   return (
@@ -135,7 +169,9 @@ export default function AmountScreen() {
         />
       </ScrollView>
       <Footer>
-        <PrimaryButton label="Continue" onPress={() => router.push('/money/pay-method')} />
+        <View style={{ opacity: amtErr ? 0.5 : 1 }}>
+          <PrimaryButton tone="lime" label="Continue" onPress={onContinue} />
+        </View>
       </Footer>
     </Screen>
   );

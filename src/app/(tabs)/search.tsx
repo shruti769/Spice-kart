@@ -138,7 +138,7 @@ export default function SearchScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 170 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
@@ -266,7 +266,7 @@ export default function SearchScreen() {
                       paddingVertical: 9,
                       paddingHorizontal: 11,
                     }}>
-                    <Photo source={c.img} crop={false} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#F1F3EE', flexShrink: 0 }} />
+                    <Photo source={c.img} crop={false} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: c.bg, flexShrink: 0 }} />
                     <Txt numberOfLines={1} style={[f(500, 12.5, 1.2), { flex: 1 }]}>
                       {c.name}
                     </Txt>

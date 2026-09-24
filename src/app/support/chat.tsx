@@ -1,21 +1,24 @@
+import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Chip, FooterBar, Glyph, IconTile } from '@/components/help/kit';
 import { BackIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { LOCAL } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
+import { pickPhoto } from '@/lib/pick-photo';
 import { useApp } from '@/store/app-store';
 
-type Msg = { id: string; from: 'agent' | 'me'; text: string; time: string };
+type Msg = { id: string; from: 'agent' | 'me'; text: string; time: string; /** Attached photo URI. */ image?: string };
 
 const INITIAL: Msg[] = [
   {
     id: 'a1',
     from: 'agent',
-    text: 'Hi Jaiveer! I can see order #SK10482 was delivered at 12:38 PM. What went wrong with it?',
+    text: 'Hi {name}! I can see order #SK10482 was delivered at 12:38 PM. What went wrong with it?',
     time: '12:41 PM',
   },
   { id: 'm1', from: 'me', text: 'The sourdough loaf was missing from the bag.', time: '12:42 PM · Read' },
@@ -28,6 +31,16 @@ const INITIAL: Msg[] = [
 ];
 
 const QUICK = ['Thanks!', 'Something else', 'Refund to card'];
+
+/** Canned replies so the demo chat feels live. */
+function replyTo(text: string) {
+  const t = text.toLowerCase();
+  if (t.includes('thank')) return 'You’re welcome! Anything else I can help with today?';
+  if (t.includes('card')) return 'No problem — I’ve moved the $6.50 refund to your card instead. It can take 3–5 business days to appear.';
+  if (t.includes('photo')) return 'Got the photo, thanks. I’ve added it to your report.';
+  if (t.includes('something else')) return 'Sure — tell me what happened and I’ll sort it out.';
+  return 'Thanks for the details. I’m checking this with the store now and will update you in a moment.';
+}
 
 function clock() {
   const d = new Date();
@@ -68,7 +81,11 @@ function Bubble({ m }: { m: Msg }) {
           paddingVertical: 10,
           paddingHorizontal: 12,
         }}>
-        <Txt style={[f(400, 12.5, 1.55), { color: me ? '#fff' : C.ink }]}>{m.text}</Txt>
+        {m.image ? (
+          <Image source={{ uri: m.image }} contentFit="cover" accessibilityLabel="Attached photo" style={{ width: 180, height: 180, borderRadius: 8 }} />
+        ) : (
+          <Txt style={[f(400, 12.5, 1.55), { color: me ? '#fff' : C.ink }]}>{m.text}</Txt>
+        )}
       </View>
       <Txt style={[f(400, 9.5, 1), { color: '#A8A8A2' }]}>{m.time}</Txt>
     </View>
@@ -87,16 +104,28 @@ function Bubble({ m }: { m: Msg }) {
 export default function SupportChatScreen() {
   const pad = usePad();
   const flash = useApp((s) => s.flash);
+  const first = useApp((s) => s.user.first);
   const scroll = useRef<ScrollView>(null);
   const [text, setText] = useState('');
   const [sent, setSent] = useState<Msg[]>([]);
 
-  const send = (value: string) => {
+  const [typing, setTyping] = useState(false);
+  const msgCount = useRef(0);
+
+  // Demo: Priya answers every message after a short "typing" pause.
+  const send = (value: string, image?: string) => {
     const t = value.trim();
     if (!t) return;
-    setSent((s) => [...s, { id: 'u' + Date.now(), from: 'me', text: t, time: clock() }]);
+    const n = ++msgCount.current;
+    setSent((s) => [...s, { id: 'u' + n, from: 'me', text: t, time: clock(), image }]);
     setText('');
+    setTyping(true);
     requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
+    setTimeout(() => {
+      setTyping(false);
+      setSent((s) => [...s, { id: 'a' + n, from: 'agent', text: replyTo(t), time: clock() }]);
+      requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
+    }, 1400);
   };
 
   return (
@@ -120,7 +149,7 @@ export default function SupportChatScreen() {
           style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
           <BackIcon color={C.forest} />
         </Tap>
-        <Avatar size={34} radius={10} font={11} />
+        <Image source={LOCAL.appIcon} accessibilityLabel="Spice Kart" style={{ width: 34, height: 34, borderRadius: 9 }} />
         <View style={{ gap: 3, flexShrink: 1 }}>
           <Txt numberOfLines={1} style={[f(700, 13.5, 1.2), { color: C.forest }]}>
             Spice Kart Support
@@ -134,7 +163,7 @@ export default function SupportChatScreen() {
         </View>
       </Grad>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           ref={scroll}
           style={{ flex: 1 }}
@@ -180,7 +209,7 @@ export default function SupportChatScreen() {
                 Delivered today · 8 items
               </Txt>
             </View>
-            <Tap onPress={() => flash('Coming soon')} hitSlop={8}>
+            <Tap onPress={() => flash('This chat is about your most recent order')} hitSlop={8}>
               <Txt numberOfLines={1} style={[f(600, 11, 1), { color: C.green }]}>
                 Change
               </Txt>
@@ -188,7 +217,7 @@ export default function SupportChatScreen() {
           </View>
 
           {INITIAL.map((m) => (
-            <Bubble key={m.id} m={m} />
+            <Bubble key={m.id} m={{ ...m, text: m.text.replace('{name}', first) }} />
           ))}
 
           <View
@@ -212,7 +241,7 @@ export default function SupportChatScreen() {
           {sent.length === 0 && (
             <Animated.View
               exiting={FadeOut.duration(150)}
-              style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, justifyContent: 'flex-end' }}>
+              style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {QUICK.map((q) => (
                 <Chip key={q} label={q} onPress={() => send(q)} />
               ))}
@@ -224,12 +253,20 @@ export default function SupportChatScreen() {
               <Bubble m={m} />
             </Animated.View>
           ))}
+          {typing && (
+            <Animated.View entering={FadeInDown.duration(200)} exiting={FadeOut.duration(120)}>
+              <Txt style={[f(400, 11, 1.3), { color: C.muted2, marginLeft: 35 }]}>Priya is typing…</Txt>
+            </Animated.View>
+          )}
         </ScrollView>
 
         <FooterBar style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
           <Tap
             accessibilityLabel="Attach photo"
-            onPress={() => flash('Coming soon')}
+            onPress={async () => {
+              const uri = await pickPhoto({ title: 'Send a photo' });
+              if (uri) send('photo', uri);
+            }}
             style={{
               width: 40,
               height: 44,
@@ -271,7 +308,7 @@ export default function SupportChatScreen() {
           />
           <Tap
             accessibilityLabel="Send"
-            onPress={() => (text.trim() ? send(text) : flash('Coming soon'))}
+            onPress={() => (text.trim() ? send(text) : flash('Type a message first'))}
             pressedStyle={{ backgroundColor: C.limeHover }}
             style={{
               width: 44,

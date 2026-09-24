@@ -1,16 +1,18 @@
-import { Image } from 'expo-image';
 import { router, type Href } from 'expo-router';
-import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { BackIcon, ChevronRight, WalletIcon } from '@/components/icons';
-import { Card, IconBox, SectionLabel, useWalletVals } from '@/components/money/parts';
+import { DialogButtons } from '@/components/account-forms/parts';
+import { BottomNav } from '@/components/bottom-nav';
+import { ChevronRight } from '@/components/icons';
+import { useWalletVals } from '@/components/money/parts';
+import { CenterDialog } from '@/components/overlays';
+import { Toggle } from '@/components/ui/toggle';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
-import { LOCAL } from '@/data/catalog';
-import { goBack, goTab } from '@/lib/nav';
-import { useApp } from '@/store/app-store';
+import { goTab } from '@/lib/nav';
+import { brandName, useApp, useDefaultCard, usePref, useTotals } from '@/store/app-store';
 
 const I = { stroke: '#3F3F3B', strokeWidth: 1.5 } as const;
 
@@ -48,6 +50,13 @@ const icons = {
       <Path d="M8.4 16.2a1.7 1.7 0 003.2 0" {...I} strokeLinecap="round" />
     </>
   ),
+  eyeOff: (
+    <>
+      <Path d="M3 10s2.6-4.8 7-4.8S17 10 17 10s-2.6 4.8-7 4.8S3 10 3 10z" {...I} strokeLinejoin="round" />
+      <Circle cx={10} cy={10} r={2.1} {...I} />
+      <Path d="M4 4l12 12" {...I} strokeLinecap="round" />
+    </>
+  ),
   help: (
     <>
       <Circle cx={10} cy={10} r={7.2} {...I} />
@@ -70,73 +79,59 @@ const icons = {
   ),
 };
 
-type RowDef = { icon: keyof typeof icons; title: string; sub?: string; value?: string; href: Href };
+type RowDef = { icon: keyof typeof icons; title: string; sub?: string; value?: string; href?: Href; right?: ReactNode; last?: boolean };
 
-/** Settings list row (`padding:11px 12px; gap:11px`, hover #FAFBF7). */
-function Row({ icon, title, sub, value, href }: RowDef) {
+function RowIcon({ icon }: { icon: keyof typeof icons }) {
   return (
-    <Tap
-      onPress={() => router.push(href)}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 11,
-        borderBottomWidth: 1,
-        borderBottomColor: C.dividerSoft,
-        paddingVertical: 11,
-        paddingHorizontal: 12,
-      }}
-      pressedStyle={{ backgroundColor: '#FAFBF7' }}>
-      <IconBox>
-        <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
-          {icons[icon]}
-        </Svg>
-      </IconBox>
+    <View style={styles.rowIcon}>
+      <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
+        {icons[icon]}
+      </Svg>
+    </View>
+  );
+}
+
+/** Settings list row: icon box, title (+ optional sub), grey value and chevron — or a custom `right` control. */
+function Row({ icon, title, sub, value, href, right, last }: RowDef) {
+  const content = (
+    <>
+      <RowIcon icon={icon} />
       <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
-        <Txt numberOfLines={1} style={f(500, 12.5, 1.2)}>
-          {title}
-        </Txt>
-        {!!sub && <Txt style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>{sub}</Txt>}
+        <Txt numberOfLines={1} style={f(500, 12.5, 1.2)}>{title}</Txt>
+        {!!sub && <Txt numberOfLines={1} style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>{sub}</Txt>}
       </View>
-      {!!value && (
-        <Txt numberOfLines={1} style={[f(400, 11, 1), { color: C.muted2 }]}>
-          {value}
-        </Txt>
+      {right ?? (
+        <>
+          {!!value && <Txt numberOfLines={1} style={[f(400, 11, 1.2), { color: C.muted2 }]}>{value}</Txt>}
+          <ChevronRight />
+        </>
       )}
-      <ChevronRight />
+    </>
+  );
+  const style = [styles.row, !last && styles.rowDivider];
+  return href ? (
+    <Tap onPress={() => router.push(href)} style={style} pressedStyle={{ backgroundColor: '#FAFBF7' }}>
+      {content}
     </Tap>
+  ) : (
+    <View style={style}>{content}</View>
   );
 }
 
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={{ gap: 7 }}>
-      <SectionLabel>{label}</SectionLabel>
-      <Card>{children}</Card>
+    <View>
+      <Txt numberOfLines={1} style={styles.sectionLabel}>{label}</Txt>
+      <View style={styles.card}>{children}</View>
     </View>
   );
 }
 
 function Stat({ n, label, onPress }: { n: string | number; label: string; onPress: () => void }) {
   return (
-    <Tap
-      onPress={onPress}
-      style={[
-        {
-          flex: 1,
-          backgroundColor: '#fff',
-          borderWidth: 1,
-          borderColor: C.borderCard,
-          borderRadius: 12,
-          padding: 11,
-          gap: 3,
-        },
-        cardShadow,
-      ]}>
-      <Txt style={f(700, 16, 1)}>{n}</Txt>
-      <Txt numberOfLines={1} style={[f(400, 10.5, 1), { color: C.muted }]}>
-        {label}
-      </Txt>
+    <Tap onPress={onPress} style={styles.stat} pressedStyle={{ borderColor: C.lime }}>
+      <Txt style={f(700, 16, 1.2)}>{n}</Txt>
+      <Txt numberOfLines={1} style={[f(400, 10.5, 1.2), { color: C.muted }]}>{label}</Txt>
     </Tap>
   );
 }
@@ -146,8 +141,16 @@ export default function ProfileScreen() {
   const pad = usePad();
   const { walletStr } = useWalletVals();
   const orderCount = useApp((s) => (s.order ? 3 : 2));
+  const { n: inCart } = useTotals();
+  const sens = usePref('sens', true);
+  const user = useApp((s) => s.user);
+  const savedCount = useApp((s) => s.addresses.length);
+  const card = useDefaultCard();
+
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const restart = () => {
+    setLogoutOpen(false);
     useApp.getState().restart();
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
@@ -155,166 +158,110 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      {/* Header */}
-      <Grad
-        preset="header"
-        style={{
-          paddingTop: pad.top(52),
-          paddingHorizontal: 14,
-          paddingBottom: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: '#DFE8CD',
-        }}>
-        <Tap
-          accessibilityLabel="Back"
-          onPress={goBack}
-          hitSlop={8}
-          style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-          <BackIcon color={C.forest} />
-        </Tap>
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 16,
-            backgroundColor: C.forest,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-          <Txt style={[f(700, 18, 1), { color: C.lime }]}>JS</Txt>
-        </View>
-        <View style={{ gap: 4, flexShrink: 1, minWidth: 0 }}>
-          <Txt numberOfLines={1} style={[f(700, 17, 1.2), { color: C.forest }]}>
-            Jaiveer Singh
-          </Txt>
-          <Txt numberOfLines={1} style={[f(400, 11.5, 1), { color: C.greenMuted }]}>
-            +61 412 908 344 · jaiveer@spicekart.com.au
-          </Txt>
-        </View>
-        <Tap
-          onPress={() => router.push('/profile/personal')}
-          style={{
-            marginLeft: 'auto',
-            height: 32,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderColor: '#C8DFA4',
-            borderRadius: 9,
-            backgroundColor: 'rgba(255,255,255,0.8)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-          <Txt numberOfLines={1} style={[f(600, 11.5, 1), { color: C.forest }]}>
-            Edit
-          </Txt>
-        </Tap>
+      <Grad preset="header" style={[styles.header, { paddingTop: pad.top(53) }]}>
+        <Txt numberOfLines={1} style={[f(700, 17, 1.2), { color: C.forest }]}>Hi {user.first}</Txt>
       </Grad>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 24, gap: 12 }}
-        showsVerticalScrollIndicator={false}>
-        {/* Wallet card */}
-        <View style={{ borderRadius: 14, boxShadow: '0 8px 20px rgba(11,61,31,0.2)' }}>
-          <Grad
-            colors={['#0B3D1F', '#14572A', '#1F7135']}
-            locations={[0, 0.58, 1]}
-            {...cssAngle(122)}
-            style={{ borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-            <View
-              style={{
-                width: 30,
-                height: 30,
-                borderWidth: 1,
-                borderColor: 'rgba(139,224,0,0.5)',
-                borderRadius: 8,
-                backgroundColor: 'rgba(139,224,0,0.14)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-              <WalletIcon size={16} color={C.lime} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: pad.bottom(30) + 90 }]} showsVerticalScrollIndicator={false}>
+        <View style={styles.stats}>
+          <Stat n={orderCount} label="Orders" onPress={() => goTab('orders')} />
+          <Stat n={6} label="Offers live" onPress={() => router.push('/offers')} />
+          <Stat n={inCart} label="In cart" onPress={() => router.push('/cart')} />
+        </View>
+
+        <View style={styles.walletShadow}>
+          <Grad colors={['#0B3D1F', '#14572A', '#1F7135']} locations={[0, 0.58, 1]} {...cssAngle(122)} style={styles.wallet}>
+            <View style={styles.walletRow}>
+              <View style={styles.walletIcon}>
+                <Svg width={17} height={17} viewBox="0 0 20 20" fill="none">
+                  <Circle cx={10} cy={10} r={7.2} stroke={C.lime} strokeWidth={1.5} />
+                  <Path d="M7.6 7.3h4.2M7.6 9.6h4.2M8.8 12.9l2.6-5.6" stroke={C.lime} strokeWidth={1.4} strokeLinecap="round" />
+                </Svg>
+              </View>
+              <View style={{ gap: 1, flexShrink: 1 }}>
+                <Txt numberOfLines={1} style={[f(500, 11.5, 1.2), { color: 'rgba(255,255,255,0.7)' }]}>Spice Kart Money</Txt>
+                <Txt numberOfLines={1} style={[f(700, 19, 1.2), { color: '#fff' }]}>{walletStr}.00</Txt>
+              </View>
+              <Tap onPress={() => router.push('/money/amount')} style={styles.addMoney} pressedStyle={{ backgroundColor: C.limeHover }}>
+                <Txt numberOfLines={1} style={[f(700, 11.5, 1.2), { color: C.forest }]}>Add money</Txt>
+              </Tap>
             </View>
-            <View style={{ gap: 3 }}>
-              <Txt numberOfLines={1} style={[f(600, 10.5, 1), { color: 'rgba(255,255,255,0.64)' }]}>
-                SPICE KART MONEY
-              </Txt>
-              <Txt numberOfLines={1} style={[f(700, 19, 1), { color: '#fff' }]}>
-                {walletStr}.00
-              </Txt>
-            </View>
-            <Tap
-              onPress={() => router.push('/money')}
-              style={{
-                marginLeft: 'auto',
-                height: 32,
-                paddingHorizontal: 13,
-                borderRadius: 9,
-                backgroundColor: C.lime,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              pressedStyle={{ backgroundColor: C.limeHover }}>
-              <Txt numberOfLines={1} style={[f(700, 11.5, 1), { color: C.forest }]}>
-                Add money
-              </Txt>
-            </Tap>
+            <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 10.5, 1.3), { color: 'rgba(255,255,255,0.65)' }]}>
+              Refunds and cashback land here instantly and apply at checkout.
+            </Txt>
           </Grad>
         </View>
 
-        {/* Stats */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Stat n={orderCount} label="Orders" onPress={() => goTab('orders')} />
-          <Stat n={6} label="Coupons" onPress={() => router.push('/offers')} />
-          <Stat n={3} label="Addresses" onPress={() => router.push('/addresses')} />
-        </View>
-
-        <Section label="ACCOUNT">
-          <Row icon="person" title="Personal details" value="Jaiveer S" href="/profile/personal" />
-          <Row icon="pin" title="Saved addresses" value="3 saved" href="/addresses" />
-          <Row icon="card" title="Payment methods" value="Visa · 4417" href="/payments" />
-          <Row icon="wallet" title="Spice Kart Money" value={`${walletStr}.00`} href="/money" />
+        <Section label="YOUR ACCOUNT">
+          <Row icon="person" title="Personal details" value={user.first + " " + (user.last[0] ?? "")} href="/profile/personal" />
+          <Row icon="pin" title="Saved addresses" value={savedCount + " saved"} href="/addresses" />
+          <Row icon="card" title="Payment methods" value={brandName(card) + ' · ' + card.last4} href="/payments" last />
         </Section>
 
-        <Section label="PRIVACY">
-          <Row icon="shield" title="Privacy & data" sub="Permissions, marketing and account data" href="/profile/privacy" />
+        <Section label="PRIVACY & PREFERENCES">
+          <Row
+            icon="eyeOff"
+            title="Hide sensitive items"
+            sub="Blur personal-care items in orders"
+            right={<Toggle value={sens} onChange={() => useApp.getState().togglePref('sens', true)} label="Hide sensitive items" />}
+          />
           <Row icon="bell" title="Notifications" value="On" href="/profile/privacy" />
+          <Row icon="shield" title="Privacy & data" href="/profile/privacy" last />
         </Section>
 
-        <Section label="SUPPORT">
-          <Row icon="help" title="Help centre" sub="FAQs, orders, refunds and delivery" href="/help" />
+        <Section label="HELP & SUPPORT">
+          <Row icon="help" title="Help centre" value="FAQs & guides" href="/help" />
           <Row icon="chat" title="Contact support" value="24/7" href="/support" />
-          <Row icon="doc" title="Terms & policies" href="/terms" />
+          <Row icon="doc" title="Terms & policies" href="/terms" last />
         </Section>
 
-        <Tap
-          onPress={restart}
-          accessibilityRole="button"
-          style={{
-            height: 44,
-            borderWidth: 1,
-            borderColor: C.border,
-            backgroundColor: '#fff',
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          pressedStyle={{ backgroundColor: '#FDF6F4' }}>
-          <Txt style={[f(600, 12.5, 1), { color: C.danger }]}>Log out</Txt>
+        <Tap onPress={() => setLogoutOpen(true)} accessibilityRole="button" style={styles.logout} pressedStyle={{ backgroundColor: '#FDF6F4' }}>
+          <Txt style={[f(600, 12.5, 1.2), { color: C.danger }]}>Log out</Txt>
         </Tap>
 
-        <View style={{ alignItems: 'center', gap: 5, paddingTop: 2, paddingBottom: 6 }}>
-          <Image source={LOCAL.wordmarkDark} contentFit="contain" style={{ width: 78, aspectRatio: 887 / 181, opacity: 0.4 }} />
-          <Txt numberOfLines={1} style={[f(400, 10, 1), { color: C.muted3 }]}>
-            Skip the store. Enjoy more. · v1.0
-          </Txt>
-        </View>
+        <Txt numberOfLines={1} style={[f(400, 10, 1.25), styles.version]}>Skip the store. Enjoy more. · v1.0</Txt>
       </ScrollView>
+
+      <BottomNav active={null} showCartBar={false} />
+
+      <CenterDialog visible={logoutOpen} onClose={() => setLogoutOpen(false)} style={styles.dialog}>
+        <View style={styles.dialogIcon}>
+          <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">
+            <Path d="M8 4H5.2A1.2 1.2 0 004 5.2v9.6A1.2 1.2 0 005.2 16H8" stroke={C.danger} strokeWidth={1.6} strokeLinecap="round" />
+            <Path d="M12.5 6.5L16 10l-3.5 3.5M16 10H8" stroke={C.danger} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+        <Txt style={f(700, 15.5, 1.3)}>Log out of Spice Kart?</Txt>
+        <Txt style={[f(400, 12, 1.6), { color: C.muted }]}>
+          Are you sure you want to log out? Your cart will be cleared and you&apos;ll need to sign in again with your mobile number.
+        </Txt>
+        <DialogButtons cancel="Cancel" confirm="Log out" onCancel={() => setLogoutOpen(false)} onConfirm={restart} height={44} size={12.5} />
+      </CenterDialog>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexShrink: 0, paddingLeft: 15, paddingRight: 16, paddingBottom: 19, borderBottomWidth: 1, borderBottomColor: '#DFE8CD' },
+  content: { paddingTop: 22, paddingHorizontal: 16 },
+
+  stats: { flexDirection: 'row', gap: 9 },
+  stat: { flex: 1, minHeight: 54, justifyContent: 'center', gap: 1, paddingHorizontal: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, ...cardShadow },
+
+  walletShadow: { marginTop: 13, borderRadius: 14, boxShadow: '0 8px 20px rgba(11,61,31,0.2)' },
+  wallet: { minHeight: 90, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 15, gap: 12, overflow: 'hidden' },
+  walletRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  walletIcon: { width: 31, height: 31, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(139,224,0,0.5)', backgroundColor: 'rgba(139,224,0,0.14)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  addMoney: { marginLeft: 'auto', height: 32, paddingHorizontal: 14, borderRadius: 10, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
+
+  sectionLabel: { ...f(600, 10.5, 1.25), letterSpacing: 0.6, color: C.muted2, marginTop: 18, marginBottom: 11 },
+  card: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, overflow: 'hidden', ...cardShadow },
+  row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, paddingHorizontal: 12 },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: C.dividerSoft },
+  rowIcon: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: '#D9D9D4', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
+  logout: { marginTop: 18, height: 44, borderWidth: 1, borderColor: C.border, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  dialog: { width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 18, gap: 11, boxShadow: '0 20px 44px rgba(0,0,0,0.22)' },
+  dialogIcon: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#FDF0EC', borderWidth: 1, borderColor: '#EEDAD5', alignItems: 'center', justifyContent: 'center' },
+  version: { color: C.muted3, textAlign: 'center', marginTop: 20, marginBottom: 6 },
+});

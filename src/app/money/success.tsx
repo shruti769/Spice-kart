@@ -19,6 +19,7 @@ import { Grad, Screen, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
+import { useApp, useTopUpMethod } from '@/store/app-store';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const CHECK_LEN = 24;
@@ -71,6 +72,8 @@ function SuccessCheck() {
 export default function MoneySuccessScreen() {
   const pad = usePad();
   const { amountStr, bal } = useWalletVals();
+  const method = useTopUpMethod();
+  const email = useApp((s) => s.user.email);
   // The wallet was already credited on confirm, so the new balance is the current one.
   const newBalance = '$' + bal.toFixed(2);
 
@@ -121,17 +124,17 @@ export default function MoneySuccessScreen() {
 
           <Card>
             <KV k="Reference" v="SKW-88214" weight={600} />
-            <KV k="Paid with" v="Visa · 4417" />
+            <KV k="Paid with" v={method.short} />
             <KV k="Date" v="1 Sep 2026, 12:04 PM" last />
           </Card>
 
           <Txt style={[f(400, 10, 1.6), { color: C.muted3, textAlign: 'center' }]}>
-            A receipt has been emailed to jaiveer@spicekart.com.au
+            {email ? 'A receipt has been emailed to ' + email : 'Your receipt is saved in Spice Kart Money'}
           </Txt>
         </Animated.View>
       </ScrollView>
       <Footer>
-        <PrimaryButton label="Continue shopping" onPress={() => goTab('home')} />
+        <PrimaryButton tone="lime" label="Continue shopping" onPress={() => goTab('home')} />
         <SecondaryButton label="View wallet" onPress={() => router.push('/money')} />
       </Footer>
     </Screen>

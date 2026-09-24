@@ -5,7 +5,7 @@ import { ScrollView, View } from 'react-native';
 import { Card, Caption, Glyph, SearchButton, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Grid, Screen, Tap, Txt } from '@/components/ui/primitives';
-import { C, cardShadow, cssAngle, f } from '@/constants/theme';
+import { C, cardShadow, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
 
 const TOPICS: [string, GlyphName][] = [
@@ -110,8 +110,8 @@ export default function HelpScreen() {
 
         <Grad
           colors={['#0B3D1F', '#14572A', '#1F7135']}
-          locations={[0, 0.58, 1]}
-          {...cssAngle(122)}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
