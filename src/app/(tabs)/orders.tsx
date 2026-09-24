@@ -4,7 +4,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { byNames, findProduct, type Product } from '@/data/catalog';
+import { findProduct, type Product } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
 import { useApp } from '@/store/app-store';
 
@@ -18,39 +18,6 @@ type OrderRow = {
   statusColor: string;
   live?: boolean;
 };
-
-/** Shown on the Active tab until the user places a real order, as in the design. */
-const SAMPLE_ACTIVE: OrderRow = {
-  no: 'Order #SK10482',
-  date: 'Today',
-  items: byNames(['Full Cream Milk', 'Truss Tomatoes', 'Sourdough Loaf']),
-  total: '$25.78',
-  status: 'Picking',
-  statusBg: '#F1F9E2',
-  statusColor: C.greenOk,
-  live: true,
-};
-
-const PAST: OrderRow[] = [
-  {
-    no: 'Order #SK10457',
-    date: '14 Aug 2026',
-    items: byNames(['Full Cream Milk', 'Truss Tomatoes', 'Sourdough Loaf', 'Free Range Eggs', 'Baby Spinach']),
-    total: '$32.40',
-    status: 'Delivered',
-    statusBg: '#EEF2EC',
-    statusColor: '#54675C',
-  },
-  {
-    no: 'Order #SK10391',
-    date: '7 Aug 2026',
-    items: byNames(['Fortune Basmati Rice', 'Garam Masala', 'Red Lentils', 'Brown Onions']),
-    total: '$27.90',
-    status: 'Delivered',
-    statusBg: '#EEF2EC',
-    statusColor: '#54675C',
-  },
-];
 
 const TABS = ['Active', 'Past Orders'] as const;
 
@@ -109,8 +76,9 @@ export default function OrdersScreen() {
               live: true,
             },
           ]
-        : [SAMPLE_ACTIVE]
-      : PAST;
+        : []
+      : // Past orders will come from Supabase once customer accounts are connected.
+        [];
 
   return (
     <Screen>

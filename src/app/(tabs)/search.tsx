@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -7,19 +7,12 @@ import { BackIcon, ChevronRight, SearchIcon } from '@/components/icons';
 import { ProductCard, QtyStepper } from '@/components/product-card';
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { CATEGORIES, byNames, money, photo, searchProducts, type Product } from '@/data/catalog';
+import { money, photo, searchProducts, type Product } from '@/data/catalog';
 import { goBack, goTab, openCategory, openProduct } from '@/lib/nav';
 import { useApp } from '@/store/app-store';
+import { useCatalogVersion, useCategories, useProducts } from '@/lib/remote-catalog';
+import { logSearch, useTrending } from '@/lib/search-trending';
 
-const TRENDING = [
-  ['Cold-pressed juice', 'Trending in Fitzroy', '+38%', 'orange,fruit'],
-  ['Sourdough loaf', 'Sells out by 9am', '+24%', 'sourdough'],
-  ['Hass avocados', 'Back in season', '+19%', 'avocado'],
-  ['Greek yoghurt', 'Popular near you', '+12%', 'yogurt'],
-  ['Garam masala', 'Spice Kart Select', '+9%', 'garam,masala'],
-].map(([term, note, delta, key], i) => ({ rank: i + 1, term, note, delta, img: photo(key) }));
-
-const CONTINUE = byNames(['Full Cream Milk', 'Hass Avocados', 'Sourdough Loaf', 'Greek Yoghurt', 'Truss Tomatoes']);
 
 const card = [{ backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, overflow: 'hidden' as const }, cardShadow];
 
@@ -33,15 +26,15 @@ function Label({ children }: { children: string }) {
 }
 
 /** A search result row (58px thumb, name, weight · brand, price, ADD / stepper). */
-function ResultRow({ p }: { p: Product }) {
+function ResultRow({ p, onOpen }: { p: Product; onOpen: () => void }) {
   const qty = useApp((s) => s.cart[p.id] ?? 0);
   const bump = useApp((s) => s.bump);
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8 }, cardShadow]}>
-      <Tap onPress={() => openProduct(p.id)} pressedStyle={{ opacity: 0.85 }} style={{ flexShrink: 0 }}>
+      <Tap onPress={onOpen} pressedStyle={{ opacity: 0.85 }} style={{ flexShrink: 0 }}>
         <Photo source={p.img} style={{ width: 58, height: 58, borderRadius: 7 }} />
       </Tap>
-      <Tap onPress={() => openProduct(p.id)} pressedStyle={{ opacity: 0.85 }} style={{ gap: 2, flex: 1, minWidth: 0 }}>
+      <Tap onPress={onOpen} pressedStyle={{ opacity: 0.85 }} style={{ gap: 2, flex: 1, minWidth: 0 }}>
         <Txt style={f(600, 12.5, 1.3)}>{p.name}</Txt>
         <Txt style={[f(400, 11, 1.2), { color: C.muted }]}>
           {p.weight} · {p.brand}
@@ -72,7 +65,27 @@ export default function SearchScreen() {
   const set = useApp((s) => s.set);
 
   const term = q.trim();
-  const results = useMemo(() => searchProducts(q), [q]);
+  const products = useProducts();
+  const categories = useCategories();
+  const catalogVersion = useCatalogVersion((s) => s.version);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- catalogVersion changes when admin products load
+  const results = useMemo(() => searchProducts(q), [q, catalogVersion]);
+  const viewedIds = useApp((s) => s.viewedIds);
+  const trending = useTrending();
+
+  // Recently viewed products that still exist; new arrivals until the user has viewed any.
+  const viewed = viewedIds.map((id) => products.find((p) => p.id === id)).filter((p): p is Product => !!p);
+  const browsing = viewed.length > 0 ? viewed.slice(0, 6) : products.slice(0, 6);
+
+  // A search counts once it's submitted or a result is opened (not on every keystroke).
+  const lastLogged = useRef('');
+  const commitSearch = () => {
+    const t = q.trim();
+    if (t.length < 2 || t.toLowerCase() === lastLogged.current) return;
+    lastLogged.current = t.toLowerCase();
+    useApp.getState().addRecentTerm(t);
+    logSearch(t);
+  };
   const idle = term.length === 0;
   const hasResults = !idle && results.length > 0;
   const noResults = !idle && results.length === 0;
@@ -121,6 +134,7 @@ export default function SearchScreen() {
             placeholderTextColor={C.muted2}
             allowFontScaling={false}
             returnKeyType="search"
+            onSubmitEditing={commitSearch}
             autoCorrect={false}
             style={[f(500, 12.5, 1.2), { flex: 1, minWidth: 0, padding: 0, color: C.ink }]}
           />
@@ -144,11 +158,12 @@ export default function SearchScreen() {
         showsVerticalScrollIndicator={false}>
         {idle && (
           <Animated.View key="idle" entering={FadeIn.duration(180)} style={{ gap: 20 }}>
-            {/* Recent searches */}
+            {/* Recent searches (this device) */}
+            {recentTerms.length > 0 && (
             <View style={{ gap: 9 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <Label>RECENT SEARCHES</Label>
-                <Tap onPress={() => set({ recentTerms: [] })} hitSlop={6}>
+                <Tap onPress={() => useApp.getState().clearRecentTerms()} hitSlop={6}>
                   <Txt numberOfLines={1} style={[f(600, 11, 1), { color: C.green }]}>
                     Clear all
                   </Txt>
@@ -183,8 +198,10 @@ export default function SearchScreen() {
                 ))}
               </View>
             </View>
+            )}
 
-            {/* Trending */}
+            {/* Trending (live, from Supabase) */}
+            {trending.terms.length > 0 && (
             <View style={{ gap: 9 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <Label>TRENDING IN MELBOURNE</Label>
@@ -194,12 +211,12 @@ export default function SearchScreen() {
                     <Path d="M9.2 4.4H12v2.8" stroke={C.green} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                   <Txt numberOfLines={1} style={[f(600, 10, 1), { color: C.green }]}>
-                    Updated hourly
+                    Live
                   </Txt>
                 </View>
               </View>
               <View style={card}>
-                {TRENDING.map((t) => (
+                {trending.terms.map((t, i) => (
                   <Tap
                     key={t.term}
                     onPress={() => set({ q: t.term })}
@@ -213,46 +230,49 @@ export default function SearchScreen() {
                       paddingVertical: 10,
                       paddingHorizontal: 12,
                     }}>
-                    <Txt style={[f(700, 11, 1), { color: '#B0B0AA', width: 14, flexShrink: 0 }]}>{t.rank}</Txt>
-                    <Photo source={t.img} style={{ width: 38, height: 38, borderRadius: 9, flexShrink: 0 }} />
+                    <Txt style={[f(700, 11, 1), { color: '#B0B0AA', width: 14, flexShrink: 0 }]}>{i + 1}</Txt>
+                    <Photo source={t.image_url ?? photo('basket')} crop={false} style={{ width: 38, height: 38, borderRadius: 9, flexShrink: 0 }} />
                     <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
                       <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>
                         {t.term}
                       </Txt>
                       <Txt numberOfLines={1} style={[f(400, 10.5, 1.2), { color: C.muted2 }]}>
-                        {t.note}
+                        {t.searches} {t.searches === 1 ? 'search' : 'searches'} this week · {t.product_count} {t.product_count === 1 ? 'product' : 'products'}
                       </Txt>
                     </View>
                     <View style={{ backgroundColor: C.selectedBgAlt, paddingVertical: 5, paddingHorizontal: 7, borderRadius: 5 }}>
                       <Txt numberOfLines={1} style={[f(600, 10, 1), { color: C.green }]}>
-                        {t.delta}
+                        {t.change_pct == null ? 'New' : (t.change_pct >= 0 ? '+' : '') + t.change_pct + '%'}
                       </Txt>
                     </View>
                   </Tap>
                 ))}
               </View>
             </View>
+            )}
 
-            {/* Continue browsing */}
+            {/* Continue browsing: recently viewed, else new arrivals */}
+            {browsing.length > 0 && (
             <View style={{ gap: 9 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <Label>CONTINUE BROWSING</Label>
                 <Txt numberOfLines={1} style={[f(400, 10.5, 1), { color: C.muted3 }]}>
-                  Recently viewed
+                  {viewed.length > 0 ? 'Recently viewed' : 'New in store'}
                 </Txt>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingBottom: 2 }}>
-                {CONTINUE.map((p) => (
+                {browsing.map((p) => (
                   <ProductCard key={p.id} p={p} style={{ flexShrink: 0, width: 128 }} />
                 ))}
               </ScrollView>
             </View>
+            )}
 
             {/* Browse aisles */}
             <View style={{ gap: 9 }}>
               <Label>BROWSE AISLES</Label>
               <View style={card}>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <Tap
                     key={c.id}
                     onPress={() => openCategory(c.id)}
@@ -271,7 +291,7 @@ export default function SearchScreen() {
                       {c.name}
                     </Txt>
                     <Txt numberOfLines={1} style={[f(400, 10.5, 1), { color: C.muted2 }]}>
-                      {c.count} products
+                      {products.filter((p) => p.cat === c.id).length} products
                     </Txt>
                     <ChevronRight />
                   </Tap>
@@ -287,7 +307,14 @@ export default function SearchScreen() {
               {results.length} results for &quot;{q}&quot;
             </Txt>
             {results.slice(0, 14).map((p) => (
-              <ResultRow key={p.id} p={p} />
+              <ResultRow
+                key={p.id}
+                p={p}
+                onOpen={() => {
+                  commitSearch();
+                  openProduct(p.id);
+                }}
+              />
             ))}
           </Animated.View>
         )}

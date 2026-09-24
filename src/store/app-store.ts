@@ -1,4 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+
+import { applyCouponRules, useCouponStore } from '@/lib/remote-coupons';
 
 import {
   ADDRESSES,
@@ -23,6 +27,8 @@ type Prefs = Partial<
 >;
 
 type State = {
+  /** True once the user has verified their number (or used Apple / Google); saved on the device. */
+  signedIn: boolean;
   cart: Record<string, number>;
   phone: string;
   addr: number;
@@ -45,7 +51,10 @@ type State = {
 
   // search
   q: string;
+  /** The user's own recent searches (newest first), kept on this device. */
   recentTerms: string[];
+  /** Products this user opened (newest first), kept on this device — "Continue browsing". */
+  viewedIds: string[];
 
   // checkout
   payment: PaymentKey;
@@ -76,6 +85,9 @@ type Actions = {
   placeOrder: () => void;
   reorder: (ids: string[]) => void;
   togglePref: (k: keyof Prefs, def: boolean) => void;
+  addRecentTerm: (term: string) => void;
+  clearRecentTerms: () => void;
+  addViewed: (id: string) => void;
   resetFilters: () => void;
   restart: () => void;
   addAddress: (a: Address, makeDefault: boolean) => void;
@@ -87,6 +99,7 @@ type Actions = {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 const initial: State = {
+  signedIn: false,
   cart: {},
   phone: '',
   addr: 0,
@@ -104,7 +117,8 @@ const initial: State = {
   availOnly: false,
   price: null,
   q: '',
-  recentTerms: ['Full cream milk', 'Truss tomatoes', 'Basmati rice', 'Avocado'],
+  recentTerms: [],
+  viewedIds: [],
   payment: 'Card',
   slot: 'ASAP',
   schDay: 'Today',
@@ -119,7 +133,9 @@ const initial: State = {
   toast: '',
 };
 
-export const useApp = create<State & Actions>()((set, get) => ({
+export const useApp = create<State & Actions>()(
+  persist(
+  (set, get) => ({
   ...initial,
 
   set: (patch) => set(patch),
@@ -167,6 +183,22 @@ export const useApp = create<State & Actions>()((set, get) => ({
     get().flash(unavailable ? unavailable + ' item unavailable · rest added' : 'Added to cart');
   },
 
+  addRecentTerm: (term) => {
+    const t = term.trim();
+    if (t.length < 2) return;
+    const next = [t, ...get().recentTerms.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 8);
+    set({ recentTerms: next });
+  },
+
+  clearRecentTerms: () => {
+    set({ recentTerms: [] });
+  },
+
+  addViewed: (id) => {
+    const next = [id, ...get().viewedIds.filter((x) => x !== id)].slice(0, 12);
+    set({ viewedIds: next });
+  },
+
   togglePref: (k, def) => {
     const prefs = get().prefs;
     set({ prefs: { ...prefs, [k]: !(prefs[k] ?? def) } });
@@ -174,7 +206,11 @@ export const useApp = create<State & Actions>()((set, get) => ({
 
   resetFilters: () => set({ dealsOnly: false, availOnly: false, price: null }),
 
-  restart: () => set({ cart: {}, order: null }),
+  // Log out: forget the account and everything tied to it (recent searches stay on the device).
+  restart: () => {
+    const { recentTerms, viewedIds } = get();
+    set({ ...initial, recentTerms, viewedIds });
+  },
 
   addAddress: (a, makeDefault) => {
     const addresses = [...get().addresses, a];
@@ -202,41 +238,49 @@ export const useApp = create<State & Actions>()((set, get) => ({
     // Keep the selected address pointing at the same entry (or the first one if it was removed).
     set({ addresses: next, addr: addr === index ? 0 : addr > index ? addr - 1 : addr });
   },
-}));
+  }),
+  {
+    // Saved with AsyncStorage so the user stays signed in (and keeps their data) across launches.
+    name: 'spice-kart',
+    version: 1,
+    storage: createJSONStorage(() => AsyncStorage),
+    partialize: (s) => ({
+      signedIn: s.signedIn,
+      phone: s.phone,
+      user: s.user,
+      addresses: s.addresses,
+      addr: s.addr,
+      cards: s.cards,
+      defaultCard: s.defaultCard,
+      prefs: s.prefs,
+      wallet: s.wallet,
+      payment: s.payment,
+      cart: s.cart,
+      coupon: s.coupon,
+      order: s.order,
+      recentTerms: s.recentTerms,
+      viewedIds: s.viewedIds,
+    }),
+  },
+  ),
+);
 
-export type CouponCode = 'SPICE5' | 'FRESH20' | 'SKFREE';
-
-/** Coupon rules from the Offers screen. `produce` is the subtotal of fresh-vegetable/fruit items. */
-function couponDiscount(code: CouponCode | null, sub: number, produce: number, delivery: number) {
-  switch (code) {
-    case 'SPICE5':
-      return { discount: Math.min(5, sub), freeDelivery: false, note: '' };
-    case 'FRESH20':
-      if (sub < 25) return { discount: 0, freeDelivery: false, note: 'Spend $' + (25 - sub).toFixed(2) + ' more to use FRESH20' };
-      if (produce === 0) return { discount: 0, freeDelivery: false, note: 'Add fresh vegetables to use FRESH20' };
-      return { discount: Math.min(10, Math.round(produce * 20) / 100), freeDelivery: false, note: '' };
-    case 'SKFREE':
-      return { discount: 0, freeDelivery: delivery > 0, note: delivery > 0 ? '' : 'Delivery is already free on this order' };
-    default:
-      return { discount: 0, freeDelivery: false, note: '' };
-  }
-}
+/** A coupon code from Supabase (`public.coupons.code`). */
+export type CouponCode = string;
 
 export function cartTotals(cart: Record<string, number>, coupon: CouponCode | null = null) {
   let sub = 0;
-  let produce = 0;
   let n = 0;
   for (const id of Object.keys(cart)) {
     const p = findProduct(id);
     if (p) {
       sub += p.price * cart[id];
-      if (p.cat === 'produce') produce += p.price * cart[id];
       n += cart[id];
     }
   }
   const baseDelivery = n === 0 ? 0 : sub >= FREE_OVER ? 0 : DELIVERY_FEE;
   const service = n === 0 ? 0 : SERVICE_FEE;
-  const c = couponDiscount(n === 0 ? null : coupon, sub, produce, baseDelivery);
+  const c = applyCouponRules(n === 0 ? null : coupon, cart, baseDelivery);
   const delivery = c.freeDelivery ? 0 : baseDelivery;
   const total = sub - c.discount + delivery + service;
   return { sub, n, delivery, service, discount: c.discount, couponNote: c.note, total, freeOver: FREE_OVER };
@@ -245,6 +289,8 @@ export function cartTotals(cart: Record<string, number>, coupon: CouponCode | nu
 export const useTotals = () => {
   const cart = useApp((s) => s.cart);
   const coupon = useApp((s) => s.coupon);
+  // Re-run when coupons load or an admin edits them.
+  useCouponStore((s) => s.coupons);
   return cartTotals(cart, coupon);
 };
 
@@ -289,4 +335,15 @@ export function useTopUpMethod() {
   if (card) return { title: brandName(card) + ' ending ' + card.last4, sub: 'Expires ' + card.exp, short: brandName(card) + ' · ' + card.last4 };
   const fast = FAST_METHODS[payIdx - cards.length] ?? FAST_METHODS[0];
   return { title: fast, sub: 'Confirm on your device', short: fast };
+}
+
+/** Resolves once the saved state has been loaded from AsyncStorage (immediately if already loaded). */
+export function whenHydrated(): Promise<void> {
+  if (useApp.persist.hasHydrated()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsub = useApp.persist.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
 }

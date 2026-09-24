@@ -15,8 +15,18 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Toast } from '@/components/overlays';
 import { C } from '@/constants/theme';
+import { startRemoteCatalog } from '@/lib/remote-catalog';
+import { startRemoteCoupons } from '@/lib/remote-coupons';
+import { checkSupabaseConnection } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
+
+// Dev only: log once whether the Supabase keys in .env work.
+if (__DEV__) checkSupabaseConnection().then((msg) => console.log(msg));
+
+// Products added in the admin panel (Supabase) appear alongside the built-in catalogue.
+startRemoteCatalog();
+startRemoteCoupons();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({

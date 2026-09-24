@@ -46,6 +46,7 @@ const formatMobile = (digits: string) => digits.replace(/(\d{3})(?=\d)/g, '$1 ')
 
 /** Social sign-in skips the SMS step and goes straight to the address picker. */
 function socialSignIn(provider: string) {
+  useApp.getState().set({ signedIn: true });
   useApp.getState().flash('Signed in with ' + provider);
   if (router.canDismiss()) router.dismissAll();
   router.replace('/location');

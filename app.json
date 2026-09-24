@@ -44,7 +44,8 @@
           "photosPermission": "Spice Kart uses your photos so you can set a profile picture or attach a photo to a support request.",
           "cameraPermission": "Spice Kart uses the camera so you can take a profile picture or a photo of an item for support."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

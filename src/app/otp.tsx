@@ -78,6 +78,8 @@ export default function OtpScreen() {
     const state = useApp.getState();
     // A new sign-up starts without an email; it can be added later in Personal details.
     if (state.phone) state.set({ user: { ...state.user, mobile: state.phone, email: '' } });
+    // Remembered on the device (AsyncStorage) so the next launch skips login.
+    state.set({ signedIn: true });
     finishAuth();
   };
 

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -9,11 +9,11 @@ import { ProductCard } from '@/components/product-card';
 import { HeaderCartButton } from '@/components/shop/header-cart-button';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
-import { ETA_MINUTES, PRODUCTS, byNames, discountPct, findProduct, money } from '@/data/catalog';
+import { ETA_MINUTES, discountPct, findProduct, money, type Product } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
+import { useProducts } from '@/lib/remote-catalog';
 import { useApp } from '@/store/app-store';
 
-const RELATED = byNames(['White Sandwich Loaf', 'Free Range Eggs', 'Mother Dairy Salted Butter', 'Greek Yoghurt']);
 
 /** Small grey/green chip under the title (`padding:5px 8px;border-radius:5px`). */
 function Pill({ children, green }: { children: string; green?: boolean }) {
@@ -36,16 +36,46 @@ function Perk({ icon, label }: { icon: ReactNode; label: string }) {
   );
 }
 
-/** Product detail (prototype `sDetail`). */
+/** Product detail (prototype `sDetail`). Products come from Supabase and may be removed by the admin. */
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const products = useProducts();
+  const prod = findProduct(id);
+  if (!prod) return <ProductUnavailable />;
+  return <ProductDetail prod={prod} products={products} />;
+}
+
+function ProductUnavailable() {
   const pad = usePad();
-  const prod = findProduct(id) ?? PRODUCTS[0];
+  return (
+    <Screen style={{ backgroundColor: '#fff' }}>
+      <View style={{ paddingTop: pad.top(52), paddingHorizontal: 14 }}>
+        <Tap accessibilityLabel="Back" onPress={goBack} hitSlop={8} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+          <BackIcon />
+        </Tap>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 32 }}>
+        <Txt style={[f(700, 16, 1.3), { textAlign: 'center' }]}>This product is no longer available</Txt>
+        <Txt style={[f(400, 12.5, 1.5), { color: C.muted, textAlign: 'center' }]}>It may have been removed from the store.</Txt>
+      </View>
+    </Screen>
+  );
+}
+
+function ProductDetail({ prod, products }: { prod: Product; products: Product[] }) {
+  const pad = usePad();
+  // "Continue browsing" on the Search tab.
+  useEffect(() => {
+    useApp.getState().addViewed(prod.id);
+  }, [prod.id]);
   const qty = useApp((s) => s.cart[prod.id] ?? 0);
   const bump = useApp((s) => s.bump);
   const disc = discountPct(prod);
   const inCart = qty > 0;
-  const related = RELATED.filter((p) => p.id !== prod.id);
+  // Same category first, then anything else in stock.
+  const related = [...products.filter((p) => p.cat === prod.cat), ...products.filter((p) => p.cat !== prod.cat)]
+    .filter((p) => p.id !== prod.id && !p.out)
+    .slice(0, 6);
 
   const perks = [
     { key: 'q', label: 'Quality checked', icon: <ShieldIcon size={20} color={C.green} /> },
@@ -170,12 +200,16 @@ export default function ProductScreen() {
             ))}
           </View>
 
-          <Txt style={f(700, 14, 1)}>Often bought with</Txt>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9 }}>
-            {related.map((p) => (
-              <ProductCard key={p.id} p={p} style={{ flexShrink: 0, width: 128 }} />
-            ))}
-          </ScrollView>
+          {related.length > 0 && (
+            <>
+              <Txt style={f(700, 14, 1)}>Often bought with</Txt>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9 }}>
+                {related.map((p) => (
+                  <ProductCard key={p.id} p={p} style={{ flexShrink: 0, width: 128 }} />
+                ))}
+              </ScrollView>
+            </>
+          )}
         </View>
       </ScrollView>
 

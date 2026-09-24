@@ -8,15 +8,13 @@ import { BottomNav } from '@/components/bottom-nav';
 import { BackIcon } from '@/components/icons';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { FREE_OVER, WALLET_BALANCE, type CategoryId } from '@/data/catalog';
-import { goBack, openCategory } from '@/lib/nav';
+import { FREE_OVER, WALLET_BALANCE, findCategory, type CategoryId } from '@/data/catalog';
+import { goBack, goTab, openCategory } from '@/lib/nav';
+import { couponBadge, couponTerms, useCoupons, type Coupon } from '@/lib/remote-coupons';
 import { cartTotals, useApp, type CouponCode } from '@/store/app-store';
 
-const COUPONS: [value: string, unit: string, title: string, terms: string, code: CouponCode, tint: string][] = [
-  ['$5', 'OFF', 'Flat $5 off your first order', 'No minimum spend · new customers', 'SPICE5', '#F0F6DE'],
-  ['20%', 'OFF', '20% off fresh vegetables', 'Min spend $25 · max discount $10', 'FRESH20', '#ECF2E5'],
-  ['FREE', 'DELIVERY', 'Free delivery all week', 'On orders above $199 · all suburbs', 'SKFREE', '#F2F5E7'],
-];
+/** Soft tints cycled across the coupon cards' value panel. */
+const TINTS = ['#F0F6DE', '#ECF2E5', '#F2F5E7'];
 
 /** [title, terms, artwork (badge baked in, from the design), category]. */
 const DEALS: [string, string, number, CategoryId][] = [
@@ -72,7 +70,10 @@ function applyCoupon(code: CouponCode) {
   if (n > 0 && router.canGoBack()) router.back();
 }
 
-function CouponRow({ c: [value, unit, title, terms, code, tint] }: { c: (typeof COUPONS)[number] }) {
+function CouponRow({ c, tint }: { c: Coupon; tint: string }) {
+  const [value, unit] = couponBadge(c);
+  const { code, title } = c;
+  const terms = couponTerms(c, c.category_id ? findCategory(c.category_id)?.name : undefined);
   const applied = useApp((s) => s.coupon === code);
   return (
     <View style={[styles.card, styles.coupon]}>
@@ -107,7 +108,8 @@ function CouponRow({ c: [value, unit, title, terms, code, tint] }: { c: (typeof 
 
 function DealTile({ d: [title, terms, img, cat] }: { d: (typeof DEALS)[number] }) {
   return (
-    <Tap onPress={() => openCategory(cat)} pressedStyle={{ borderColor: C.lime }} style={[styles.card, styles.deal]}>
+    // Deals point at category slugs; fall back to the Categories tab if the admin hasn't created that one.
+    <Tap onPress={() => (findCategory(cat) ? openCategory(cat) : goTab('categories'))} pressedStyle={{ borderColor: C.lime }} style={[styles.card, styles.deal]}>
       <Image source={img} contentFit="cover" accessibilityLabel={title} style={styles.dealImage} />
       <View style={styles.dealText}>
         <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={f(700, 15, 1.25)}>{title}</Txt>
@@ -145,6 +147,7 @@ export default function OffersScreen() {
   const pad = usePad();
   const wallet = useApp((s) => s.wallet);
   const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0);
+  const { coupons, loaded } = useCoupons();
 
   return (
     <Screen>
@@ -154,7 +157,7 @@ export default function OffersScreen() {
         </Tap>
         <View style={{ gap: 2, flexShrink: 1 }}>
           <Txt numberOfLines={1} style={[f(700, 17, 1.2), { color: C.forest }]}>Offers & coupons</Txt>
-          <Txt numberOfLines={1} style={[f(400, 13, 1.25), { color: C.greenMuted }]}>6 live offers · ends Sunday 11pm</Txt>
+          <Txt numberOfLines={1} style={[f(400, 13, 1.25), { color: C.greenMuted }]}>{coupons.length} live {coupons.length === 1 ? 'coupon' : 'coupons'}</Txt>
         </View>
         <View style={styles.wallet}>
           <RupeeCircle color={C.greenOk} />
@@ -163,17 +166,24 @@ export default function OffersScreen() {
       </Grad>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: pad.bottom(30) + 90 }]} showsVerticalScrollIndicator={false}>
-        <Tap onPress={() => flash('Code SPICE5 copied')} style={styles.heroShadow}>
-          <Grad colors={['#0B3D1F', '#14572A', '#1F7135']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.hero}>
-            <Txt numberOfLines={1} style={[f(700, 12, 1.2), { letterSpacing: 1.2, color: C.lime }]}>FIRST ORDER OFFER</Txt>
-          </Grad>
-        </Tap>
+        {/* Featured offer: the admin's first (top-sorted) live coupon. */}
+        {coupons.length > 0 && (
+          <Tap onPress={() => applyCoupon(coupons[0].code)} style={styles.heroShadow}>
+            <Grad colors={['#0B3D1F', '#14572A', '#1F7135']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.hero}>
+              <Txt numberOfLines={1} style={[f(700, 12, 1.2), { letterSpacing: 1.2, color: C.lime }]}>
+                {coupons[0].title.toUpperCase()}
+              </Txt>
+            </Grad>
+          </Tap>
+        )}
 
         <SectionLabel>COUPONS FOR YOU</SectionLabel>
         <View style={{ gap: 10 }}>
-          {COUPONS.map((c) => (
-            <CouponRow key={c[4]} c={c} />
-          ))}
+          {coupons.length === 0 ? (
+            <Txt style={[f(400, 12.5, 1.5), { color: C.muted }]}>{loaded ? 'No coupons right now — check back soon.' : 'Loading coupons…'}</Txt>
+          ) : (
+            coupons.map((c, i) => <CouponRow key={c.id} c={c} tint={TINTS[i % TINTS.length]} />)
+          )}
         </View>
 
         <SectionLabel note="Ends Sunday">SHOP THE DEALS</SectionLabel>

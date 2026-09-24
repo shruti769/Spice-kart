@@ -15,6 +15,7 @@ import { FocusStatusBar } from '@/components/ui/focus-status-bar';
 import { Txt, usePad } from '@/components/ui/primitives';
 import { f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
+import { useApp, whenHydrated } from '@/store/app-store';
 
 const LIME = '#A2F74E';
 
@@ -40,14 +41,15 @@ export default function SplashScreen() {
   const done = useRef(false);
   const t = useSharedValue(0);
 
+  // After the splash, signed-in users (restored from AsyncStorage) go straight to Home.
   const skip = useCallback(() => {
     if (done.current) return;
     done.current = true;
-    router.replace('/login');
+    whenHydrated().then(() => router.replace(useApp.getState().signedIn ? '/home' : '/login'));
   }, []);
 
   useEffect(() => {
-    t.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    t.set(withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }));
     const timer = setTimeout(skip, 2000);
     return () => clearTimeout(timer);
   }, [skip, t]);

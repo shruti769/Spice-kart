@@ -14,21 +14,12 @@ import Svg, { Path } from 'react-native-svg';
 import { slotLabelOf } from '@/components/checkout/slot';
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { byNames, findProduct, money, type Product } from '@/data/catalog';
+import { findProduct, money, type Product } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
 import { useAddress, useApp, useTotals, type PlacedOrder } from '@/store/app-store';
 
 /** Quantities are read when the store records them on the order (see report); otherwise ×1. */
 const qtyOf = (order: PlacedOrder, id: string) => order.qty[id] ?? 1;
-
-/** The design's order, shown when no order is in the store (e.g. after an app reload). */
-const SAMPLE_ITEMS = byNames(['Patanjali Besan', 'Truss Tomatoes', 'Sourdough Loaf']);
-const SAMPLE_ORDER: PlacedOrder = {
-  no: 'Order #SK10482',
-  itemIds: SAMPLE_ITEMS.map((p) => p.id),
-  qty: Object.fromEntries(SAMPLE_ITEMS.map((p) => [p.id, p.name === 'Truss Tomatoes' ? 2 : 1])),
-  total: '$25.78',
-};
 
 function InfoRow({ label, value, valueStyle, last }: { label: string; value: string; valueStyle: StyleProp<TextStyle>; last?: boolean }) {
   return (
@@ -62,7 +53,7 @@ function SuccessBadge() {
 
 export default function OrderConfirmedScreen() {
   const pad = usePad();
-  const order = useApp((s) => s.order) ?? SAMPLE_ORDER;
+  const order = useApp((s) => s.order);
   const slot = useApp((s) => s.slot);
   const schDay = useApp((s) => s.schDay);
   const payment = useApp((s) => s.payment);

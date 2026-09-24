@@ -9,11 +9,11 @@ import { BackIcon } from '@/components/icons';
 import { ProductCard, QtyStepper } from '@/components/product-card';
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { ETA_MINUTES, LOCAL, byNames, findProduct, money, type Product } from '@/data/catalog';
+import { ETA_MINUTES, LOCAL, findProduct, money, type Product } from '@/data/catalog';
 import { goBack, goTab } from '@/lib/nav';
+import { useProducts } from '@/lib/remote-catalog';
+import { useCoupons } from '@/lib/remote-coupons';
 import { useApp, useTotals } from '@/store/app-store';
-
-const SUGGESTED = byNames(['White Sandwich Loaf', 'Tomato Ketchup', 'Mother Dairy Salted Butter', 'Greek Yoghurt', 'Free Range Eggs', 'Cavendish Bananas']);
 
 /** One line in the bill. */
 function BillRow({ label, value, color = C.ink }: { label: string; value: string; color?: string }) {
@@ -60,6 +60,7 @@ export default function CartScreen() {
   const cart = useApp((s) => s.cart);
   const T = useTotals();
   const coupon = useApp((s) => s.coupon);
+  const couponCount = useCoupons().coupons.length;
   const hasCart = T.n > 0;
   const cartMeta = T.n + (T.n === 1 ? ' item' : ' items');
   const unlocked = T.sub >= T.freeOver;
@@ -67,7 +68,8 @@ export default function CartScreen() {
   const lines = Object.keys(cart)
     .map((id) => ({ p: findProduct(id), qty: cart[id] }))
     .filter((l): l is { p: Product; qty: number } => !!l.p);
-  const suggestions = SUGGESTED.filter((p) => !cart[p.id]).slice(0, 5);
+  const products = useProducts();
+  const suggestions = products.filter((p) => !cart[p.id] && !p.out).slice(0, 5);
 
   return (
     <Screen>
@@ -126,7 +128,9 @@ export default function CartScreen() {
                 <Txt numberOfLines={1} style={f(600, 12, 1.2)}>{coupon ? coupon + ' applied' : 'Apply a coupon'}</Txt>
                 <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[f(400, 10.5, 1.2), { color: coupon && T.couponNote ? C.danger : coupon ? C.greenOk : C.muted }]}>
                   {!coupon
-                    ? '6 coupons available for this order'
+                    ? couponCount > 0
+                      ? `${couponCount} ${couponCount === 1 ? 'coupon' : 'coupons'} available for this order`
+                      : 'See offers for this order'
                     : T.couponNote || (T.discount > 0 ? 'You save ' + money(T.discount) : 'Free delivery on this order')}
                 </Txt>
               </View>
@@ -145,6 +149,7 @@ export default function CartScreen() {
               ))}
             </Animated.View>
 
+            {suggestions.length > 0 && (
             <View style={{ gap: 8, marginTop: 2 }}>
               <View style={[styles.row, { justifyContent: 'space-between' }]}>
                 <Txt numberOfLines={1} style={f(700, 14, 1.25)}>You might also like</Txt>
@@ -156,6 +161,7 @@ export default function CartScreen() {
                 ))}
               </ScrollView>
             </View>
+            )}
 
             <View style={[styles.card, styles.bill]}>
               <Txt style={f(700, 14, 1.25)}>Bill details</Txt>

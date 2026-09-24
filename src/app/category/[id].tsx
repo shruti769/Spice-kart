@@ -10,36 +10,10 @@ import { BackIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cssAngle, f } from '@/constants/theme';
-import { PRODUCTS, findCategory, subcategoriesOf, type CategoryId } from '@/data/catalog';
+import { ETA_MINUTES, PRODUCTS, findCategory, subcategoriesOf, type CategoryId } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
+import { useCatalogVersion } from '@/lib/remote-catalog';
 import { useTotals } from '@/store/app-store';
-
-/** Header titles the category designs use instead of the catalogue name. */
-const TITLES: Partial<Record<CategoryId, string>> = {
-  produce: 'Fruits & Vegetables',
-  frozen: 'Frozen Food',
-};
-
-/** Promo strip copy per category: [title, subtitle, badge]. */
-const STRIPS: Record<CategoryId, [string, string, string]> = {
-  dairy: ['Farm fresh every morning', 'Kept cold from dock to door', '15% OFF'],
-  bakery: ['Baked fresh this morning', 'Small batches from local bakers', '10% OFF'],
-  produce: ['Freshly picked this morning', 'Sourced from Victorian growers', '20% OFF'],
-  flours: ['Freshly milled flours', 'Soft rotis and perfect batters', '15% OFF'],
-  pulses: ['Hand-sorted dals & beans', 'Cleaned and graded for even cooking', '10% OFF'],
-  spice: ['Small-batch spices', 'Bright, full aroma in every pack', '10% OFF'],
-  grains: ['Pantry staples', 'Rice, pasta, poha & oats', '15% OFF'],
-  oil: ['Cold-pressed oils & ghee', 'Sealed fresh for everyday cooking', '10% OFF'],
-  snack: ['Snack time sorted', 'Chips, namkeen, biscuits & nuts', '20% OFF'],
-  instant: ['Ready in minutes', 'Noodles, soups & ready meals', '15% OFF'],
-  tea: ['Brew something good', 'Tea, coffee & everyday drinks', '10% OFF'],
-  condiments: ['Pickles, pastes & sauces', 'The finishing touch to any meal', '10% OFF'],
-  sweeteners: ['Sweet & baking staples', 'Sugar, honey & baking essentials', '10% OFF'],
-  frozen: ['Snap-frozen at peak freshness', 'Ready-to-cook food & vegetables', '15% OFF'],
-  fasting: ['Vrat-friendly staples', 'Carefully sourced for fasting days', '10% OFF'],
-  general: ['Home & daily care', 'Cleaning and personal care essentials', '15% OFF'],
-  pooja: ['Pooja & festival essentials', 'Traditional and ethically sourced', '10% OFF'],
-};
 
 const SIDEBAR = 79;
 const TILE = 53;
@@ -54,8 +28,10 @@ function ActiveMarker() {
   );
 }
 
-function PromoStrip({ cat }: { cat: CategoryId }) {
-  const [title, subtitle, badge] = STRIPS[cat];
+/** Promo strip at the top of every category: the category's own name and delivery promise. */
+function PromoStrip({ name }: { name: string }) {
+  const title = name;
+  const subtitle = `Delivered in ${ETA_MINUTES} minutes`;
   return (
     <Grad colors={['#F1F9DF', '#FBFDF6']} {...cssAngle(100)} style={styles.strip}>
       <View style={styles.stripIcon}>
@@ -67,9 +43,6 @@ function PromoStrip({ cat }: { cat: CategoryId }) {
         <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(700, 13, 1.25), { color: C.forest }]}>{title}</Txt>
         <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 11.5, 1.25), { color: '#5F6B57' }]}>{subtitle}</Txt>
       </View>
-      <View style={styles.stripPill}>
-        <Txt numberOfLines={1} style={[f(700, 12, 1.2), { color: C.forest }]}>{badge}</Txt>
-      </View>
     </Grad>
   );
 }
@@ -78,12 +51,15 @@ function PromoStrip({ cat }: { cat: CategoryId }) {
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: CategoryId }>();
   const pad = usePad();
-  const cat = findCategory(id);
+  const catalogVersion = useCatalogVersion((s) => s.version);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- categories are replaced when the admin edits them
+  const cat = useMemo(() => findCategory(id), [id, catalogVersion]);
   const { n } = useTotals();
   const [sub, setSub] = useState('All');
 
   const subs = useMemo(() => (cat ? subcategoriesOf(cat.id) : []), [cat]);
-  const all = useMemo(() => PRODUCTS.filter((p) => p.cat === id), [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- catalogVersion changes when admin products load
+  const all = useMemo(() => PRODUCTS.filter((p) => p.cat === id), [id, catalogVersion]);
   const list = useMemo(() => (sub === 'All' ? all : all.filter((p) => p.sub === sub)), [all, sub]);
 
   return (
@@ -93,7 +69,7 @@ export default function CategoryScreen() {
           <BackIcon size={18} />
         </Tap>
         <View style={{ gap: 2, flexShrink: 1 }}>
-          <Txt numberOfLines={1} style={f(700, 17, 1.2)}>{cat ? (TITLES[cat.id] ?? cat.name) : 'Groceries'}</Txt>
+          <Txt numberOfLines={1} style={f(700, 17, 1.2)}>{cat ? cat.name : 'Groceries'}</Txt>
           <Txt numberOfLines={1} style={[f(400, 13, 1.25), { color: C.muted }]}>{all.length} products</Txt>
         </View>
       </View>
@@ -121,7 +97,7 @@ export default function CategoryScreen() {
 
         <View style={styles.content}>
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-            {cat && <PromoStrip cat={cat.id} />}
+            {cat && <PromoStrip name={cat.name} />}
             <Animated.View key={sub} entering={FadeIn.duration(180)}>
               {list.length > 0 ? (
                 <Grid data={list} columns={2} gap={13} rowGap={10} keyOf={(p) => p.id} renderItem={(p) => <ProductCard p={p} tall style={{ flex: 1 }} />} />
@@ -155,7 +131,6 @@ const styles = StyleSheet.create({
 
   strip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 53, marginBottom: 12, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E1EBCF' },
   stripIcon: { width: 22, height: 22, borderRadius: 5, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  stripPill: { marginLeft: 'auto', height: 22, paddingHorizontal: 8, borderRadius: 5, backgroundColor: C.lime, justifyContent: 'center' },
 
   cartBar: { position: 'absolute', left: 11, right: 22, marginHorizontal: 0, marginBottom: 0 },
 });

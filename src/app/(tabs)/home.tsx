@@ -7,41 +7,13 @@ import { ChevronDown, SearchIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { ETA_MINUTES, FREE_OVER, LOCAL, WALLET_BALANCE, byNames, type CategoryId, type Product } from '@/data/catalog';
+import { ETA_MINUTES, FREE_OVER, LOCAL, WALLET_BALANCE, findProduct, type Category, type Product } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
+import { useCategories, useProducts } from '@/lib/remote-catalog';
 import { initialsOf, useAddress, useApp } from '@/store/app-store';
 
-const BUY_AGAIN = byNames(['Patanjali Besan', 'Aashirvaad Atta', 'Tata Salt', 'Mother Dairy Salted Butter']);
-const ESSENTIALS = byNames(['White Sandwich Loaf', 'Mother Dairy Salted Butter', 'Fortune Basmati Rice', 'Vetta Pasta', 'Greek Yoghurt']);
-const DEALS = byNames(['Cheese Block', 'Extra Virgin Olive Oil', 'Pink Lady Apples', 'Laundry Liquid']);
 
-type Shelf = { label: string; cat: CategoryId; img: number };
 
-const GROCERY: Shelf[] = [
-  { label: 'Vegetable & Fruits', cat: 'produce', img: require('@/assets/images/home/cats/produce.png') },
-  { label: 'Oil, Ghee & Masala', cat: 'oil', img: require('@/assets/images/home/cats/oil.png') },
-  { label: 'Flours, Rice & Pulses', cat: 'flours', img: require('@/assets/images/home/cats/flours.png') },
-  { label: 'Dairy & Bread', cat: 'dairy', img: require('@/assets/images/home/cats/dairy.png') },
-  { label: 'Bakery & Biscuits', cat: 'bakery', img: require('@/assets/images/home/cats/bakery.png') },
-  { label: 'Dry Fruits & Cereals', cat: 'grains', img: require('@/assets/images/home/cats/dryfruits.png') },
-];
-const SNACKS: Shelf[] = [
-  { label: 'Chips & Namkeen', cat: 'snack', img: require('@/assets/images/home/cats/chips.png') },
-  { label: 'Sweets & Chocolates', cat: 'sweeteners', img: require('@/assets/images/home/cats/sweets.png') },
-  { label: 'Tea, Coffee & Milk Drinks', cat: 'tea', img: require('@/assets/images/home/cats/tea.png') },
-  { label: 'Instant Food', cat: 'instant', img: require('@/assets/images/home/cats/instant.png') },
-  { label: 'Sauces & Spread', cat: 'condiments', img: require('@/assets/images/home/cats/sauces.png') },
-  { label: 'Frozen Foods', cat: 'frozen', img: require('@/assets/images/home/cats/frozen.png') },
-];
-/** Top rail: the same shelves, with shorter labels where the design uses them. */
-const RAIL: Shelf[] = [
-  { ...GROCERY[0], label: 'Vegetables & Fruits' },
-  ...GROCERY.slice(1),
-  ...SNACKS,
-];
-
-/** Background baked into the basket artwork, so tiles blend with it. */
-const BASKET_BG = '#F1FADC';
 
 const goCats = () => goTab('categories');
 const goOffers = () => router.push('/offers');
@@ -80,36 +52,42 @@ function Rail({ items, cardWidth }: { items: Product[]; cardWidth: number }) {
   );
 }
 
-function CategoryRail() {
+/** Category image on its tile colour (admin-uploaded; remote URL). */
+function CategoryArt({ c, fit }: { c: Category; fit: 'contain' | 'cover' }) {
+  return <Image source={typeof c.img === 'string' ? { uri: c.img } : c.img} contentFit={fit} style={StyleSheet.absoluteFill} />;
+}
+
+/** Top rail: every category the admin has created, in their order. */
+function CategoryRail({ categories }: { categories: Category[] }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRail} contentContainerStyle={styles.catRailContent}>
-      {RAIL.map((s) => (
-        <Tap key={s.label} onPress={() => openCategory(s.cat)} style={styles.catRailItem}>
-          <View style={styles.catRailTile}>
-            <Image source={s.img} contentFit="contain" style={StyleSheet.absoluteFill} />
+      {categories.map((c) => (
+        <Tap key={c.id} onPress={() => openCategory(c.id)} style={styles.catRailItem}>
+          <View style={[styles.catRailTile, { backgroundColor: c.bg }]}>
+            <CategoryArt c={c} fit="contain" />
           </View>
-          <Txt numberOfLines={2} style={[f(500, 11.5, 1.3), { color: C.ink2, textAlign: 'center' }]}>{s.label}</Txt>
+          <Txt numberOfLines={2} style={[f(500, 11.5, 1.3), { color: C.ink2, textAlign: 'center' }]}>{c.short}</Txt>
         </Tap>
       ))}
     </ScrollView>
   );
 }
 
-function ShelfGrid({ items }: { items: Shelf[] }) {
+function ShelfGrid({ categories }: { categories: Category[] }) {
   return (
     <Grid
-      data={items}
+      data={categories}
       columns={3}
       gap={10}
       rowGap={16}
-      keyOf={(s) => s.label}
+      keyOf={(c) => c.id}
       style={{ paddingHorizontal: 16 }}
-      renderItem={(s) => (
-        <Tap onPress={() => openCategory(s.cat)} pressedStyle={{ borderColor: C.lime }} style={styles.shelf}>
-          <View style={styles.shelfImage}>
-            <Image source={s.img} contentFit="cover" style={StyleSheet.absoluteFill} />
+      renderItem={(c) => (
+        <Tap onPress={() => openCategory(c.id)} pressedStyle={{ borderColor: C.lime }} style={styles.shelf}>
+          <View style={[styles.shelfImage, { backgroundColor: c.bg }]}>
+            <CategoryArt c={c} fit="contain" />
           </View>
-          <Txt numberOfLines={2} style={[f(600, 13, 1.25), { textAlign: 'center' }]}>{s.label}</Txt>
+          <Txt numberOfLines={2} style={[f(600, 13, 1.25), { textAlign: 'center' }]}>{c.name}</Txt>
         </Tap>
       )}
     />
@@ -140,6 +118,14 @@ export default function HomeScreen() {
   const address = useAddress();
   const user = useApp((s) => s.user);
   const wallet = useApp((s) => s.wallet);
+  const order = useApp((s) => s.order);
+  const products = useProducts();
+  const categories = useCategories();
+
+  // All product sections come from Supabase; each is hidden while it has nothing to show.
+  const buyAgain = (order?.itemIds ?? []).map(findProduct).filter((p): p is Product => !!p);
+  const essentials = products.slice(0, 8);
+  const deals = products.filter((p) => p.orig > p.price).slice(0, 4);
 
   const addrLabel = address.label + ' • ' + address.area;
   const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0);
@@ -177,7 +163,7 @@ export default function HomeScreen() {
       </Grad>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 175 }} showsVerticalScrollIndicator={false}>
-        <CategoryRail />
+        {categories.length > 0 && <CategoryRail categories={categories} />}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.banners}>
           <PhotoBanner
@@ -211,8 +197,12 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        <SectionHead title="Buy again" note="From your last order" />
-        <Rail items={BUY_AGAIN} cardWidth={118} />
+        {buyAgain.length > 0 && (
+          <>
+            <SectionHead title="Buy again" note="From your last order" />
+            <Rail items={buyAgain} cardWidth={118} />
+          </>
+        )}
 
         <Tap onPress={goCats} style={styles.freeDelivery}>
           <Image source={LOCAL.freeDelivery} contentFit="contain" accessibilityLabel="Free delivery on orders above $199" style={styles.freeDeliveryArt} />
@@ -221,28 +211,38 @@ export default function HomeScreen() {
           </View>
         </Tap>
 
-        <SectionHead title="Grocery & Kitchen" link="See all" onPress={goCats} />
-        <ShelfGrid items={GROCERY} />
+        {categories.length > 0 && (
+          <>
+            <SectionHead title="Shop by category" link="See all" onPress={goCats} />
+            <ShelfGrid categories={categories} />
+          </>
+        )}
 
-        <SectionHead title="Snacks" link="See all" onPress={goCats} />
-        <ShelfGrid items={SNACKS} />
 
-        <SectionHead title="Everyday Essentials" link="See all" onPress={goCats} />
-        <Rail items={ESSENTIALS} cardWidth={118} />
+        {essentials.length > 0 && (
+          <>
+            <SectionHead title="Everyday Essentials" link="See all" onPress={goCats} />
+            <Rail items={essentials} cardWidth={118} />
+          </>
+        )}
 
         <Tap onPress={goOffers} accessibilityLabel="Brand deals, 31 August to 6 September" style={styles.brandDeals}>
           <Image source={LOCAL.brandDeals} contentFit="cover" style={{ width, aspectRatio: 538 / 585 }} />
         </Tap>
 
-        <SectionHead title="Deals for you" link="All offers" onPress={goOffers} />
-        <Grid
-          data={DEALS}
-          columns={2}
-          gap={10}
-          keyOf={(p) => p.id}
-          style={{ paddingHorizontal: 16 }}
-          renderItem={(p) => <ProductCard p={p} style={{ flex: 1 }} />}
-        />
+        {deals.length > 0 && (
+          <>
+            <SectionHead title="Deals for you" link="All offers" onPress={goOffers} />
+            <Grid
+              data={deals}
+              columns={2}
+              gap={10}
+              keyOf={(p) => p.id}
+              style={{ paddingHorizontal: 16 }}
+              renderItem={(p) => <ProductCard p={p} style={{ flex: 1 }} />}
+            />
+          </>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -260,9 +260,10 @@ const styles = StyleSheet.create({
   searchText: { flex: 1, minWidth: 0, color: C.muted2 },
 
   catRail: { flexGrow: 0, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.divider },
-  catRailContent: { paddingTop: 12, paddingBottom: 14, paddingHorizontal: 16, gap: 6 },
-  catRailItem: { flexShrink: 0, width: 64, alignItems: 'center', gap: 6 },
-  catRailTile: { width: 54, height: 54, borderRadius: 9, overflow: 'hidden', backgroundColor: BASKET_BG },
+  // Same 70pt pitch as before, but the full width goes to the item so two-line labels don't get squeezed.
+  catRailContent: { paddingTop: 12, paddingBottom: 14, paddingHorizontal: 13, gap: 0 },
+  catRailItem: { flexShrink: 0, width: 70, alignItems: 'center', gap: 6 },
+  catRailTile: { width: 54, height: 54, borderRadius: 9, overflow: 'hidden' },
 
   banners: { paddingTop: 28, paddingHorizontal: 16, gap: 10 },
   banner: { flexShrink: 0, width: 282, height: 143, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
   shopNow: { marginLeft: 'auto', height: 30, paddingHorizontal: 16, borderRadius: 6, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
 
   shelf: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8, paddingBottom: 12, gap: 8 },
-  shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden', backgroundColor: BASKET_BG },
+  shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden' },
 
   brandDeals: { marginTop: 32 },
 });
