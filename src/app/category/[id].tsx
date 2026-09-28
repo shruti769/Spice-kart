@@ -8,11 +8,14 @@ import Svg, { Path } from 'react-native-svg';
 import { CartBar } from '@/components/bottom-nav';
 import { BackIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
+import { PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cssAngle, f } from '@/constants/theme';
-import { ETA_MINUTES, PRODUCTS, findCategory, subcategoriesOf, type CategoryId } from '@/data/catalog';
+import { PRODUCTS, findCategory, subcategoriesOf, type CategoryId } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
+import { useBanners } from '@/lib/remote-banners';
 import { useCatalogVersion } from '@/lib/remote-catalog';
+import { useEtaMinutes } from '@/lib/remote-delivery';
 import { useTotals } from '@/store/app-store';
 
 const SIDEBAR = 79;
@@ -31,7 +34,8 @@ function ActiveMarker() {
 /** Promo strip at the top of every category: the category's own name and delivery promise. */
 function PromoStrip({ name }: { name: string }) {
   const title = name;
-  const subtitle = `Delivered in ${ETA_MINUTES} minutes`;
+  const eta = useEtaMinutes();
+  const subtitle = `Delivered in ${eta} minutes`;
   return (
     <Grad colors={['#F1F9DF', '#FBFDF6']} {...cssAngle(100)} style={styles.strip}>
       <View style={styles.stripIcon}>
@@ -55,6 +59,7 @@ export default function CategoryScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- categories are replaced when the admin edits them
   const cat = useMemo(() => findCategory(id), [id, catalogVersion]);
   const { n } = useTotals();
+  const banners = useBanners('category_top', id);
   const [sub, setSub] = useState('All');
 
   const subs = useMemo(() => (cat ? subcategoriesOf(cat.id) : []), [cat]);
@@ -97,7 +102,13 @@ export default function CategoryScreen() {
 
         <View style={styles.content}>
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-            {cat && <PromoStrip name={cat.name} />}
+            {banners.length > 0 ? (
+              <View style={styles.catBanners}>
+                {banners.map((b, i) => <PromoBanner key={b.id} b={b} index={i} width="100%" />)}
+              </View>
+            ) : (
+              cat && <PromoStrip name={cat.name} />
+            )}
             <Animated.View key={sub} entering={FadeIn.duration(180)}>
               {list.length > 0 ? (
                 <Grid data={list} columns={2} gap={13} rowGap={10} keyOf={(p) => p.id} renderItem={(p) => <ProductCard p={p} tall style={{ flex: 1 }} />} />
@@ -129,6 +140,7 @@ const styles = StyleSheet.create({
   list: { paddingTop: 9, paddingLeft: 13, paddingRight: 26, paddingBottom: 160 },
   empty: { color: C.muted, textAlign: 'center', paddingVertical: 60 },
 
+  catBanners: { gap: 10, marginBottom: 12 },
   strip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 53, marginBottom: 12, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E1EBCF' },
   stripIcon: { width: 22, height: 22, borderRadius: 5, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 

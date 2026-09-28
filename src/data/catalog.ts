@@ -269,10 +269,7 @@ export const ADDRESSES: Address[] = [
   { tag: 'W', label: 'Work', line: 'Level 8, 420 Bourke Street, Melbourne VIC 3000', area: 'Melbourne VIC' },
 ];
 
-export const ETA_MINUTES = 25;
-export const FREE_OVER = 50;
-export const DELIVERY_FEE = 3.99;
-export const SERVICE_FEE = 0.99;
+// Delivery fees, the express ETA and the free-delivery threshold come from Supabase: see `@/lib/remote-delivery`.
 export const WALLET_BALANCE = 24;
 
 export const LOCAL = {
@@ -285,6 +282,4 @@ export const LOCAL = {
   brandSpice: require('@/assets/images/banners/brand-spice.jpg'),
   brandPantry: require('@/assets/images/banners/brand-pantry.jpg'),
   brandBakery: require('@/assets/images/banners/brand-bakery.jpg'),
-  freeDelivery: require('@/assets/images/home/free-delivery.png'),
-  brandDeals: require('@/assets/images/home/brand-deals.png'),
 };

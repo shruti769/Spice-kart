@@ -8,23 +8,15 @@ import { BottomNav } from '@/components/bottom-nav';
 import { BackIcon } from '@/components/icons';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { FREE_OVER, WALLET_BALANCE, findCategory, type CategoryId } from '@/data/catalog';
+import { WALLET_BALANCE, findCategory } from '@/data/catalog';
 import { goBack, goTab, openCategory } from '@/lib/nav';
 import { couponBadge, couponTerms, useCoupons, type Coupon } from '@/lib/remote-coupons';
+import { useDeliverySettings } from '@/lib/remote-delivery';
+import { dealsEndNote, tileImage, tileText, useOfferTiles, type OfferTile } from '@/lib/remote-offers';
 import { cartTotals, useApp, type CouponCode } from '@/store/app-store';
 
 /** Soft tints cycled across the coupon cards' value panel. */
 const TINTS = ['#F0F6DE', '#ECF2E5', '#F2F5E7'];
-
-/** [title, terms, artwork (badge baked in, from the design), category]. */
-const DEALS: [string, string, number, CategoryId][] = [
-  ['Fresh vegetables', 'Min spend $25 · ends Sunday', require('@/assets/images/offers/vegetables.png'), 'produce'],
-  ['Your first order', 'Applied automatically at checkout', require('@/assets/images/offers/first-order.png'), 'produce'],
-  ['Selected pantry essentials', 'Rice, pasta and pulses', require('@/assets/images/offers/pantry.png'), 'grains'],
-  ['Milk & dairy', 'Before 10am daily', require('@/assets/images/offers/dairy.png'), 'dairy'],
-  ['Orders over $' + FREE_OVER.toFixed(0), 'Every day, all suburbs', require('@/assets/images/offers/delivery.png'), 'produce'],
-  ['Spice Kart Select spices', 'Our own small-batch blends', require('@/assets/images/offers/spices.png'), 'spice'],
-];
 
 const flash = (msg: string) => useApp.getState().flash(msg);
 
@@ -65,7 +57,7 @@ function CodeChip({ code }: { code: string }) {
 function applyCoupon(code: CouponCode) {
   const state = useApp.getState();
   state.set({ coupon: code });
-  const { n, couponNote } = cartTotals(state.cart, code);
+  const { n, couponNote } = cartTotals(state.cart, code, state.slot);
   flash(couponNote || code + ' applied to your cart');
   if (n > 0 && router.canGoBack()) router.back();
 }
@@ -106,14 +98,17 @@ function CouponRow({ c, tint }: { c: Coupon; tint: string }) {
   );
 }
 
-function DealTile({ d: [title, terms, img, cat] }: { d: (typeof DEALS)[number] }) {
+function DealTile({ d, freeOver }: { d: OfferTile; freeOver: number }) {
+  const title = tileText(d.title, freeOver);
+  const img = tileImage(d);
+  const cat = d.category_id;
   return (
-    // Deals point at category slugs; fall back to the Categories tab if the admin hasn't created that one.
-    <Tap onPress={() => (findCategory(cat) ? openCategory(cat) : goTab('categories'))} pressedStyle={{ borderColor: C.lime }} style={[styles.card, styles.deal]}>
-      <Image source={img} contentFit="cover" accessibilityLabel={title} style={styles.dealImage} />
+    // Deals point at category slugs; fall back to the Categories tab when there's none (or it's hidden).
+    <Tap onPress={() => (cat && findCategory(cat) ? openCategory(cat) : goTab('categories'))} pressedStyle={{ borderColor: C.lime }} style={[styles.card, styles.deal]}>
+      {img ? <Image source={img} contentFit="cover" accessibilityLabel={title} style={styles.dealImage} /> : <View style={[styles.dealImage, { backgroundColor: C.selectedBgAlt }]} />}
       <View style={styles.dealText}>
         <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={f(700, 15, 1.25)}>{title}</Txt>
-        <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 12.5, 1.3), { color: C.muted2 }]}>{terms}</Txt>
+        <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 12.5, 1.3), { color: C.muted2 }]}>{tileText(d.subtitle, freeOver)}</Txt>
       </View>
     </Tap>
   );
@@ -148,6 +143,8 @@ export default function OffersScreen() {
   const wallet = useApp((s) => s.wallet);
   const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0);
   const { coupons, loaded } = useCoupons();
+  const { freeOver } = useDeliverySettings();
+  const { deals, bank } = useOfferTiles();
 
   return (
     <Screen>
@@ -186,14 +183,23 @@ export default function OffersScreen() {
           )}
         </View>
 
-        <SectionLabel note="Ends Sunday">SHOP THE DEALS</SectionLabel>
-        <Grid data={DEALS} columns={2} gap={10} keyOf={(d) => d[0]} renderItem={(d) => <DealTile d={d} />} />
+        {deals.length > 0 && (
+          <>
+            <SectionLabel note={dealsEndNote(deals)}>SHOP THE DEALS</SectionLabel>
+            <Grid data={deals} columns={2} gap={10} keyOf={(d) => d.id} renderItem={(d) => <DealTile d={d} freeOver={freeOver} />} />
+          </>
+        )}
 
-        <SectionLabel>BANK & PAYMENT OFFERS</SectionLabel>
-        <View style={[styles.card, { overflow: 'hidden' }]}>
-          <BankRow icon="card" title="10% off with Visa cards" sub="Max $12 · min spend $40" badge="Auto" />
-          <BankRow icon="wallet" title="5% back to Spice Kart Money" sub="On every PayID order" badge="Always on" last />
-        </View>
+        {bank.length > 0 && (
+          <>
+            <SectionLabel>BANK & PAYMENT OFFERS</SectionLabel>
+            <View style={[styles.card, { overflow: 'hidden' }]}>
+              {bank.map((b, i) => (
+                <BankRow key={b.id} icon={b.icon} title={tileText(b.title, freeOver)} sub={tileText(b.subtitle, freeOver)} badge={b.badge} last={i === bank.length - 1} />
+              ))}
+            </View>
+          </>
+        )}
         <Txt style={[f(400, 12, 1.6), styles.note]}>
           One coupon per order. Offers cannot be combined with Spice Kart Money cashback unless stated.
         </Txt>

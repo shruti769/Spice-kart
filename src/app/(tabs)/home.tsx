@@ -5,11 +5,14 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ChevronDown, SearchIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
+import { PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { ETA_MINUTES, FREE_OVER, LOCAL, WALLET_BALANCE, findProduct, type Category, type Product } from '@/data/catalog';
+import { WALLET_BALANCE, findProduct, type Category, type Product } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
+import { useBanners } from '@/lib/remote-banners';
 import { useCategories, useProducts } from '@/lib/remote-catalog';
+import { useDeliverySettings } from '@/lib/remote-delivery';
 import { initialsOf, useAddress, useApp } from '@/store/app-store';
 
 
@@ -27,6 +30,9 @@ function DollarIcon() {
   );
 }
 
+/** Sections on Home show this many items; "See all" appears only when there are more. */
+const HOME_LIMIT = 6;
+
 function SectionHead({ title, link, onPress, note }: { title: string; link?: string; onPress?: () => void; note?: string }) {
   return (
     <View style={styles.sectionHead}>
@@ -34,7 +40,7 @@ function SectionHead({ title, link, onPress, note }: { title: string; link?: str
       {note ? (
         <Txt numberOfLines={1} style={[f(400, 13, 1.2), { color: C.muted }]}>{note}</Txt>
       ) : (
-        <Tap accessibilityRole="link" onPress={onPress} hitSlop={12} style={styles.seeAll}>
+        !!link && <Tap accessibilityRole="link" onPress={onPress} hitSlop={12} style={styles.seeAll}>
           <Txt style={[f(600, 13, 1.2), { color: C.greenOk }]}>{link}</Txt>
         </Tap>
       )}
@@ -94,24 +100,6 @@ function ShelfGrid({ categories }: { categories: Category[] }) {
   );
 }
 
-/** Promo banner with a photo on the right and a fading tint behind the copy. */
-function PhotoBanner({ img, bg, border, fade, tag, tagBg, ink, sub, subInk, title }: {
-  img: number; bg: string; border: string; fade: string; tag: string; tagBg: string; ink: string; sub: string; subInk: string; title: string;
-}) {
-  return (
-    <View style={[styles.banner, { backgroundColor: bg, borderColor: border }]}>
-      <Image source={img} contentFit="cover" style={styles.bannerPhoto} />
-      <Grad colors={[bg, bg, fade]} locations={[0, 0.72, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.bannerCopy}>
-        <View style={[styles.bannerTag, { backgroundColor: tagBg }]}>
-          <Txt numberOfLines={1} style={[f(700, 11, 1.2), { letterSpacing: 1, color: ink }]}>{tag}</Txt>
-        </View>
-        <Txt numberOfLines={2} style={[f(700, 16.5, 1.2), { color: ink }]}>{title}</Txt>
-        <Txt numberOfLines={1} style={[f(400, 13, 1.2), { color: subInk }]}>{sub}</Txt>
-      </Grad>
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   const pad = usePad();
   const { width } = useWindowDimensions();
@@ -120,11 +108,14 @@ export default function HomeScreen() {
   const wallet = useApp((s) => s.wallet);
   const order = useApp((s) => s.order);
   const products = useProducts();
+  const { etaMinutes: eta } = useDeliverySettings();
   const categories = useCategories();
+  const topBanners = useBanners('home_top');
+  const middleBanners = useBanners('home_middle');
 
   // All product sections come from Supabase; each is hidden while it has nothing to show.
   const buyAgain = (order?.itemIds ?? []).map(findProduct).filter((p): p is Product => !!p);
-  const essentials = products.slice(0, 8);
+  const essentials = products.slice(0, HOME_LIMIT);
   const deals = products.filter((p) => p.orig > p.price).slice(0, 4);
 
   const addrLabel = address.label + ' • ' + address.area;
@@ -136,7 +127,7 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <Tap onPress={() => router.push('/location')} style={styles.headerInfo}>
             <Txt numberOfLines={1} style={[f(700, 14, 1.25), { color: C.greenOk }]}>SpiceKart</Txt>
-            <Txt numberOfLines={1} style={[f(700, 17, 1.25), { color: C.greenDeep }]}>Delivery in {ETA_MINUTES} minutes</Txt>
+            <Txt numberOfLines={1} style={[f(700, 17, 1.25), { color: C.greenDeep }]}>Delivery in {eta} minutes</Txt>
             <View style={styles.addr}>
               <Txt numberOfLines={1} style={[f(400, 13, 1.25), { color: C.greenMuted }]}>{addrLabel}</Txt>
               <ChevronDown size={10} />
@@ -165,37 +156,11 @@ export default function HomeScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 175 }} showsVerticalScrollIndicator={false}>
         {categories.length > 0 && <CategoryRail categories={categories} />}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.banners}>
-          <PhotoBanner
-            img={LOCAL.bannerFresh}
-            bg="#E7F1DA"
-            border="#D8E4C8"
-            fade="rgba(231,241,218,0)"
-            tag="UP TO 20% OFF"
-            tagBg={C.lime}
-            ink={C.forest}
-            title="Fresh picks for your kitchen"
-            sub="Vegetables, fruit & herbs"
-            subInk={C.greenMuted}
-          />
-          <PhotoBanner
-            img={LOCAL.bannerStaples}
-            bg="#F4EEDE"
-            border="#E7DFCA"
-            fade="rgba(244,238,222,0)"
-            tag="BUY 2 SAVE MORE"
-            tagBg="#EBD9A8"
-            ink="#4A3A16"
-            title="Stock up & save on staples"
-            sub="Rice, pasta & pulses"
-            subInk="#6B5A31"
-          />
-          <View style={[styles.banner, styles.promoBanner]}>
-            <Txt numberOfLines={2} style={[f(700, 15, 1.3), { color: '#fff' }]}>Skip the store. Enjoy more.</Txt>
-            <Txt numberOfLines={1} style={[f(600, 12, 1.2), { color: C.lime }]}>Free delivery over ${FREE_OVER}</Txt>
-            <View style={styles.promoStripe} />
-          </View>
-        </ScrollView>
+        {topBanners.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.banners}>
+            {topBanners.map((b, i) => <PromoBanner key={b.id} b={b} index={i} />)}
+          </ScrollView>
+        )}
 
         {buyAgain.length > 0 && (
           <>
@@ -204,31 +169,25 @@ export default function HomeScreen() {
           </>
         )}
 
-        <Tap onPress={goCats} style={styles.freeDelivery}>
-          <Image source={LOCAL.freeDelivery} contentFit="contain" accessibilityLabel="Free delivery on orders above $199" style={styles.freeDeliveryArt} />
-          <View style={styles.shopNow}>
-            <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>Shop now</Txt>
-          </View>
-        </Tap>
+        {middleBanners.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.middleBanners}>
+            {middleBanners.map((b, i) => <PromoBanner key={b.id} b={b} index={i + 1} width={middleBanners.length === 1 ? width - 32 : 282} />)}
+          </ScrollView>
+        )}
 
         {categories.length > 0 && (
           <>
-            <SectionHead title="Shop by category" link="See all" onPress={goCats} />
-            <ShelfGrid categories={categories} />
+            <SectionHead title="Shop by category" link={categories.length > HOME_LIMIT ? 'See all' : undefined} onPress={goCats} />
+            <ShelfGrid categories={categories.slice(0, HOME_LIMIT)} />
           </>
         )}
-
 
         {essentials.length > 0 && (
           <>
-            <SectionHead title="Everyday Essentials" link="See all" onPress={goCats} />
+            <SectionHead title="Everyday Essentials" link={products.length > HOME_LIMIT ? 'See all' : undefined} onPress={goCats} />
             <Rail items={essentials} cardWidth={118} />
           </>
         )}
-
-        <Tap onPress={goOffers} accessibilityLabel="Brand deals, 31 August to 6 September" style={styles.brandDeals}>
-          <Image source={LOCAL.brandDeals} contentFit="cover" style={{ width, aspectRatio: 538 / 585 }} />
-        </Tap>
 
         {deals.length > 0 && (
           <>
@@ -266,24 +225,14 @@ const styles = StyleSheet.create({
   catRailTile: { width: 54, height: 54, borderRadius: 9, overflow: 'hidden' },
 
   banners: { paddingTop: 28, paddingHorizontal: 16, gap: 10 },
+  middleBanners: { paddingTop: 20, paddingHorizontal: 16, gap: 10 },
   banner: { flexShrink: 0, width: 282, height: 143, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
-  bannerPhoto: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 150 },
-  bannerCopy: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 200, paddingHorizontal: 14, justifyContent: 'center', gap: 8 },
-  promoBanner: { width: 225, borderWidth: 0, backgroundColor: C.forest, justifyContent: 'center', paddingLeft: 15, paddingRight: 36, gap: 6 },
-  promoStripe: { position: 'absolute', right: 9, top: 21, bottom: 21, width: 6, backgroundColor: C.lime },
-  bannerTag: { alignSelf: 'flex-start', paddingVertical: 3, paddingHorizontal: 7, borderRadius: 4, marginBottom: 2 },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 28, paddingBottom: 18, paddingHorizontal: 16 },
   // Extra padding (offset by negative margin) so the small link is easy to hit.
   seeAll: { paddingVertical: 6, paddingLeft: 12, marginVertical: -6 },
   rail: { paddingHorizontal: 16, paddingBottom: 4, gap: 10 },
 
-  freeDelivery: { marginTop: 20, marginHorizontal: 16, height: 89, borderRadius: 10, backgroundColor: '#1B3C22', flexDirection: 'row', alignItems: 'center', paddingLeft: 12, paddingRight: 18, overflow: 'hidden' },
-  freeDeliveryArt: { width: 142, height: 61 },
-  shopNow: { marginLeft: 'auto', height: 30, paddingHorizontal: 16, borderRadius: 6, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
-
   shelf: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8, paddingBottom: 12, gap: 8 },
   shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden' },
-
-  brandDeals: { marginTop: 32 },
 });

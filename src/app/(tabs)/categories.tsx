@@ -3,9 +3,10 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { ETA_MINUTES, type Category } from '@/data/catalog';
+import { type Category } from '@/data/catalog';
 import { openCategory } from '@/lib/nav';
 import { useCategories, useProducts } from '@/lib/remote-catalog';
+import { useEtaMinutes } from '@/lib/remote-delivery';
 
 
 function CategoryCard({ c, count }: { c: Category; count: number }) {
@@ -23,6 +24,7 @@ function CategoryCard({ c, count }: { c: Category; count: number }) {
 
 export default function CategoriesScreen() {
   const pad = usePad();
+  const eta = useEtaMinutes();
   const products = useProducts();
   const categories = useCategories();
   const total = products.length;
@@ -31,7 +33,7 @@ export default function CategoriesScreen() {
       <View style={[styles.header, { paddingTop: pad.top(56) }]}>
         <Txt style={f(700, 17, 1.2)}>All categories</Txt>
         <Txt style={[f(400, 13, 1.25), { color: C.muted }]}>
-          {total} {total === 1 ? 'product' : 'products'} · delivery in {ETA_MINUTES} min
+          {total} {total === 1 ? 'product' : 'products'} · delivery in {eta} min
         </Txt>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>

@@ -3,12 +3,10 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { applyCouponRules, useCouponStore } from '@/lib/remote-coupons';
+import { slotFee, useDeliveryStore } from '@/lib/remote-delivery';
 
 import {
   ADDRESSES,
-  DELIVERY_FEE,
-  FREE_OVER,
-  SERVICE_FEE,
   findProduct,
   money,
   type Address,
@@ -58,7 +56,9 @@ type State = {
 
   // checkout
   payment: PaymentKey;
+  /** 'ASAP' (express) or the id of a scheduled `delivery_slots` row. */
   slot: string | null;
+  /** Date ('YYYY-MM-DD') of the scheduled slot; '' = the first bookable day. */
   schDay: string;
   scheduling: boolean;
 
@@ -121,7 +121,7 @@ const initial: State = {
   viewedIds: [],
   payment: 'Card',
   slot: 'ASAP',
-  schDay: 'Today',
+  schDay: '',
   scheduling: false,
   ordersTab: 'Active',
   wallet: null,
@@ -156,8 +156,8 @@ export const useApp = create<State & Actions>()(
   },
 
   placeOrder: () => {
-    const { cart, coupon } = get();
-    const t = cartTotals(cart, coupon);
+    const { cart, coupon, slot } = get();
+    const t = cartTotals(cart, coupon, slot);
     set({
       order: {
         // Base chosen so the design's $25.78 basket reads #SK10482.
@@ -268,7 +268,7 @@ export const useApp = create<State & Actions>()(
 /** A coupon code from Supabase (`public.coupons.code`). */
 export type CouponCode = string;
 
-export function cartTotals(cart: Record<string, number>, coupon: CouponCode | null = null) {
+export function cartTotals(cart: Record<string, number>, coupon: CouponCode | null = null, slot: string | null = 'ASAP') {
   let sub = 0;
   let n = 0;
   for (const id of Object.keys(cart)) {
@@ -278,20 +278,27 @@ export function cartTotals(cart: Record<string, number>, coupon: CouponCode | nu
       n += cart[id];
     }
   }
-  const baseDelivery = n === 0 ? 0 : sub >= FREE_OVER ? 0 : DELIVERY_FEE;
-  const service = n === 0 ? 0 : SERVICE_FEE;
+  const { settings, slots } = useDeliveryStore.getState();
+  // Express unless a scheduled slot is picked; a slot removed by the admin falls back to the default slot fee.
+  const scheduled = slot && slot !== 'ASAP' ? slots.find((s) => s.id === slot) : undefined;
+  const fee = !slot || slot === 'ASAP' ? settings.expressFee : scheduled ? slotFee(scheduled, settings) : settings.scheduledFee;
+  const baseDelivery = n === 0 ? 0 : sub >= settings.freeOver ? 0 : fee;
+  const service = n === 0 ? 0 : settings.handlingFee;
   const c = applyCouponRules(n === 0 ? null : coupon, cart, baseDelivery);
   const delivery = c.freeDelivery ? 0 : baseDelivery;
   const total = sub - c.discount + delivery + service;
-  return { sub, n, delivery, service, discount: c.discount, couponNote: c.note, total, freeOver: FREE_OVER };
+  return { sub, n, delivery, service, discount: c.discount, couponNote: c.note, total, freeOver: settings.freeOver };
 }
 
 export const useTotals = () => {
   const cart = useApp((s) => s.cart);
   const coupon = useApp((s) => s.coupon);
-  // Re-run when coupons load or an admin edits them.
+  const slot = useApp((s) => s.slot);
+  // Re-run when coupons or delivery settings load or an admin edits them.
   useCouponStore((s) => s.coupons);
-  return cartTotals(cart, coupon);
+  useDeliveryStore((s) => s.settings);
+  useDeliveryStore((s) => s.slots);
+  return cartTotals(cart, coupon, slot);
 };
 
 export const usePref = (k: keyof Prefs, def: boolean) => useApp((s) => s.prefs[k] ?? def);

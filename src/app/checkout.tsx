@@ -4,12 +4,12 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SCH_DAYS, SCH_WINDOWS, windowLabel } from '@/components/checkout/slot';
 import { BackIcon } from '@/components/icons';
 import { Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { ETA_MINUTES, money } from '@/data/catalog';
+import { money } from '@/data/catalog';
 import { goBack, resetTo } from '@/lib/nav';
+import { findBookableSlot, scheduledLabel, slotFee, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
 import { brandName, useAddress, useApp, useDefaultCard, useTotals, type PaymentKey } from '@/store/app-store';
 
 const LIME = C.lime;
@@ -52,19 +52,37 @@ export default function CheckoutScreen() {
   const t = useTotals();
   const coupon = useApp((s) => s.coupon);
   const slot = useApp((s) => s.slot);
-  const schDay = useApp((s) => s.schDay) || 'Today';
+  const schDay = useApp((s) => s.schDay);
   const scheduling = useApp((s) => s.scheduling);
+  const delivery = useDeliverySettings();
+  const days = useScheduleDays();
+  // The picked day, or the first bookable one.
+  const day = days.find((d) => d.date === schDay) ?? days[0];
   const payment = useApp((s) => s.payment);
   const card = useDefaultCard();
   const set = useApp((s) => s.set);
 
   const addr = useAddress();
   const express = slot === 'ASAP' && !scheduling;
-  const schSub = slot && slot !== 'ASAP' ? schDay + ' · ' + windowLabel(slot) : 'Choose a delivery time that works for you';
+  const schSub = slot && slot !== 'ASAP' && schDay ? scheduledLabel(slot, schDay) : 'Choose a delivery time that works for you';
   const total = money(t.total);
 
   const placeOrder = () => {
-    useApp.getState().placeOrder();
+    const s = useApp.getState();
+    if (s.slot !== 'ASAP') {
+      if (!s.slot || !s.schDay) {
+        s.set({ scheduling: true });
+        s.flash('Pick a delivery window');
+        return;
+      }
+      // The window may have passed its cut-off (or been closed) since it was picked.
+      if (!findBookableSlot(s.slot, s.schDay)) {
+        s.set({ slot: null, scheduling: true });
+        s.flash('That window is no longer available · pick another');
+        return;
+      }
+    }
+    s.placeOrder();
     resetTo('/order-confirmed');
   };
 
@@ -113,7 +131,7 @@ export default function CheckoutScreen() {
             <View style={styles.optionText}>
               <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>Express delivery</Txt>
               <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 11, 1.2), { color: C.muted }]}>Get your order as soon as possible</Txt>
-              <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.green }]}>Arrives in {ETA_MINUTES} minutes</Txt>
+              <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.green }]}>Arrives in {delivery.etaMinutes} minutes</Txt>
             </View>
             <Radio on={express} size={22} />
           </Tap>
@@ -133,34 +151,42 @@ export default function CheckoutScreen() {
 
           {scheduling && (
             <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(120)} layout={layout} style={styles.schedule}>
-              <Txt numberOfLines={1} style={styles.panelLabel}>CHOOSE A DAY</Txt>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
-                {SCH_DAYS.map(([label, sub]) => {
-                  const on = schDay === label;
-                  return (
-                    <Tap key={label} onPress={() => set({ schDay: label })} style={[styles.day, on && styles.chipOn]}>
-                      <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={f(600, 12.5, 1.2)}>{label}</Txt>
-                      <Txt numberOfLines={1} style={[f(400, 11, 1.2), { color: C.muted2 }]}>{sub}</Txt>
-                    </Tap>
-                  );
-                })}
-              </ScrollView>
-              <Txt numberOfLines={1} style={[styles.panelLabel, { marginTop: 4 }]}>AVAILABLE WINDOWS</Txt>
-              <Grid
-                data={SCH_WINDOWS}
-                columns={2}
-                gap={8}
-                keyOf={(w) => w[0]}
-                renderItem={([key, label, fee]) => {
-                  const on = slot === key;
-                  return (
-                    <Tap onPress={() => set({ slot: key, scheduling: false })} style={[styles.window, on && styles.chipOn]}>
-                      <Txt numberOfLines={1} style={f(600, 14, 1.25)}>{label}</Txt>
-                      <Txt numberOfLines={1} style={[f(500, 9.5, 1.2), { color: fee === 'Free' ? C.green : C.muted2 }]}>{fee}</Txt>
-                    </Tap>
-                  );
-                }}
-              />
+              {day ? (
+                <>
+                  <Txt numberOfLines={1} style={styles.panelLabel}>CHOOSE A DAY</Txt>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
+                    {days.map((d) => {
+                      const on = d.date === day.date;
+                      return (
+                        <Tap key={d.date} onPress={() => set({ schDay: d.date })} style={[styles.day, on && styles.chipOn]}>
+                          <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={f(600, 12.5, 1.2)}>{d.label}</Txt>
+                          <Txt numberOfLines={1} style={[f(400, 11, 1.2), { color: C.muted2 }]}>{d.sub}</Txt>
+                        </Tap>
+                      );
+                    })}
+                  </ScrollView>
+                  <Txt numberOfLines={1} style={[styles.panelLabel, { marginTop: 4 }]}>AVAILABLE WINDOWS</Txt>
+                  <Grid
+                    data={day.slots}
+                    columns={2}
+                    gap={8}
+                    keyOf={(w) => w.id}
+                    renderItem={(w) => {
+                      const on = slot === w.id && schDay === day.date;
+                      // Free when the order already qualifies for free delivery.
+                      const fee = t.sub >= t.freeOver ? 0 : slotFee(w, delivery);
+                      return (
+                        <Tap onPress={() => set({ slot: w.id, schDay: day.date, scheduling: false })} style={[styles.window, on && styles.chipOn]}>
+                          <Txt numberOfLines={1} style={f(600, 14, 1.25)}>{windowLabel(w)}</Txt>
+                          <Txt numberOfLines={1} style={[f(500, 9.5, 1.2), { color: fee === 0 ? C.green : C.muted2 }]}>{fee === 0 ? 'Free' : money(fee)}</Txt>
+                        </Tap>
+                      );
+                    }}
+                  />
+                </>
+              ) : (
+                <Txt style={[f(400, 12.5, 1.4), { color: C.muted }]}>No delivery windows are open right now. Choose express delivery or check back later.</Txt>
+              )}
             </Animated.View>
           )}
         </Animated.View>

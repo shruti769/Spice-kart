@@ -13,6 +13,7 @@ import {
   type RemoteCategoryRow,
   type RemoteProductRow,
 } from '@/data/catalog';
+import { onTableChange, singleFlight } from '@/lib/live-changes';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const PRODUCT_COLUMNS =
@@ -22,40 +23,37 @@ const CATEGORY_COLUMNS = 'id, name, short_name, image_url, bg_color, subcategori
 /** Bumps every time Supabase categories or products change, so screens re-render. */
 export const useCatalogVersion = create<{ version: number }>(() => ({ version: 0 }));
 
-let loading: Promise<void> | null = null;
-
 /**
  * Fetch categories (enabled only, via RLS) and then published products, and merge them into the
  * catalogue. Categories load first because each product is shown under its category.
  */
+const loadCatalog = singleFlight(async () => {
+  const cats = await supabase.from('categories').select(CATEGORY_COLUMNS).order('sort').order('name');
+  if (cats.error) {
+    if (__DEV__) console.warn('Could not load categories from Supabase:', cats.error.message);
+  } else {
+    setRemoteCategories(cats.data as RemoteCategoryRow[]);
+  }
+
+  const prods = await supabase.from('products').select(PRODUCT_COLUMNS).order('created_at', { ascending: false });
+  if (prods.error) {
+    if (__DEV__) console.warn('Could not load products from Supabase:', prods.error.message);
+  } else {
+    setRemoteProducts((prods.data as RemoteProductRow[]).map(productFromRow).filter((p): p is Product => !!p));
+  }
+  useCatalogVersion.setState((s) => ({ version: s.version + 1 }));
+});
+
 export function refreshCatalog() {
   if (!isSupabaseConfigured) return Promise.resolve();
-  loading ??= (async () => {
-    const cats = await supabase.from('categories').select(CATEGORY_COLUMNS).order('sort').order('name');
-    if (cats.error) {
-      if (__DEV__) console.warn('Could not load categories from Supabase:', cats.error.message);
-    } else {
-      setRemoteCategories(cats.data as RemoteCategoryRow[]);
-    }
-
-    const prods = await supabase.from('products').select(PRODUCT_COLUMNS).order('created_at', { ascending: false });
-    if (prods.error) {
-      if (__DEV__) console.warn('Could not load products from Supabase:', prods.error.message);
-    } else {
-      setRemoteProducts((prods.data as RemoteProductRow[]).map(productFromRow).filter((p): p is Product => !!p));
-    }
-    useCatalogVersion.setState((s) => ({ version: s.version + 1 }));
-  })().finally(() => {
-    loading = null;
-  });
-  return loading;
+  return loadCatalog();
 }
 
 let started = false;
 
 /**
  * Load the catalogue now, refresh when the app returns to the foreground, and live-update while
- * it's open (Supabase Realtime on products, categories and sub-categories). Safe to call twice.
+ * it's open (via `app_changes`, so hiding a product or category shows too). Safe to call twice.
  */
 export function startRemoteCatalog() {
   if (started || !isSupabaseConfigured) return;
@@ -66,11 +64,7 @@ export function startRemoteCatalog() {
     if (state === 'active') refreshCatalog();
   });
 
-  const channel = supabase.channel('catalog-changes');
-  for (const table of ['products', 'categories', 'subcategories']) {
-    channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => refreshCatalog());
-  }
-  channel.subscribe();
+  onTableChange(['products', 'categories', 'subcategories'], refreshCatalog);
 }
 
 /**

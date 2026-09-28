@@ -3,6 +3,8 @@ import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import { findProduct } from '@/data/catalog';
+import { onTableChange, singleFlight } from '@/lib/live-changes';
+import { refreshOfferTiles } from '@/lib/remote-offers';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /** A live coupon from `public.coupons` (RLS only returns active ones inside their date window). */
@@ -28,33 +30,46 @@ export const findCoupon = (code: string | null) => (code ? byCode.get(code) : un
 
 export const useCouponStore = create<{ coupons: Coupon[]; loaded: boolean }>(() => ({ coupons: [], loaded: false }));
 
-let loading: Promise<void> | null = null;
+let nextTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Refresh again when the next coupon or offer tile starts or ends (see `next_offer_change`). */
+async function scheduleNextChange() {
+  const { data, error } = await supabase.rpc('next_offer_change');
+  clearTimeout(nextTimer);
+  if (error || !data) return;
+  // setTimeout overflows past ~24 days; re-check at least every 6 hours.
+  const ms = Math.min(new Date(data as string).getTime() - Date.now() + 1000, 6 * 3600_000);
+  nextTimer = setTimeout(() => {
+    refreshCoupons();
+    refreshOfferTiles();
+  }, Math.max(ms, 1000));
+}
+
+const loadCoupons = singleFlight(async () => {
+  const { data, error } = await supabase.from('coupons').select(COLUMNS).order('sort').order('created_at', { ascending: false });
+  if (error) {
+    if (__DEV__) console.warn('Could not load coupons:', error.message);
+    return;
+  }
+  const coupons = (data ?? []).map((r) => ({
+    ...r,
+    value: Number(r.value),
+    max_discount: r.max_discount == null ? null : Number(r.max_discount),
+    min_spend: Number(r.min_spend),
+  })) as Coupon[];
+  byCode = new Map(coupons.map((c) => [c.code, c]));
+  useCouponStore.setState({ coupons, loaded: true });
+  scheduleNextChange();
+});
 
 export function refreshCoupons() {
   if (!isSupabaseConfigured) return Promise.resolve();
-  loading ??= (async () => {
-    const { data, error } = await supabase.from('coupons').select(COLUMNS).order('sort').order('created_at', { ascending: false });
-    if (error) {
-      if (__DEV__) console.warn('Could not load coupons:', error.message);
-      return;
-    }
-    const coupons = (data ?? []).map((r) => ({
-      ...r,
-      value: Number(r.value),
-      max_discount: r.max_discount == null ? null : Number(r.max_discount),
-      min_spend: Number(r.min_spend),
-    })) as Coupon[];
-    byCode = new Map(coupons.map((c) => [c.code, c]));
-    useCouponStore.setState({ coupons, loaded: true });
-  })().finally(() => {
-    loading = null;
-  });
-  return loading;
+  return loadCoupons();
 }
 
 let started = false;
 
-/** Load coupons now, on foreground, and live when an admin changes them. */
+/** Load coupons now, on foreground, and live when an admin changes them (or one starts / ends). */
 export function startRemoteCoupons() {
   if (started || !isSupabaseConfigured) return;
   started = true;
@@ -62,10 +77,7 @@ export function startRemoteCoupons() {
   AppState.addEventListener('change', (s) => {
     if (s === 'active') refreshCoupons();
   });
-  supabase
-    .channel('coupon-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, () => refreshCoupons())
-    .subscribe();
+  onTableChange(['coupons'], refreshCoupons);
 }
 
 /** Live coupons; re-renders when they change. */
