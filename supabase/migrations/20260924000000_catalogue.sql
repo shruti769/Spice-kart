@@ -1,6 +1,10 @@
 -- Spice Kart · catalogue backend (categories, products, product images, admin access).
 -- Run once in Supabase Dashboard → SQL Editor. Safe to re-run: every statement is idempotent.
 --
+-- ⚠ Don't re-run after the admin panel's spice-kart-admin/supabase/business_settings.sql: that
+--   file replaces public.is_admin() (adding 2FA / IP-allowlist checks) and this one would put the
+--   simpler version below back.
+--
 -- Access model
 --   • Customer app (publishable key, not signed in): can READ published products and categories.
 --   • Admin panel: signs in with Supabase Auth; users listed in public.admins can add/edit/delete.

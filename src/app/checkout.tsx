@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
@@ -9,7 +9,12 @@ import { Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { money } from '@/data/catalog';
 import { goBack, resetTo } from '@/lib/nav';
-import { findBookableSlot, scheduledLabel, slotFee, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { refreshCatalog } from '@/lib/remote-catalog';
+import { refreshConfig, useStoreConfig } from '@/lib/remote-config';
+import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { getDeviceFix, type DeviceFix } from '@/lib/location';
+import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
+import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
 import { brandName, useAddress, useApp, useDefaultCard, useTotals, type PaymentKey } from '@/store/app-store';
 
 const LIME = C.lime;
@@ -47,6 +52,45 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Explain a rejected order and refresh whatever was out of date (stock, slots). */
+function orderFailed(e: OrderError) {
+  const s = useApp.getState();
+  switch (e.code) {
+    case 'out_of_stock':
+      refreshCatalog();
+      return s.flash((e.detail || 'An item') + ' is out of stock · update your cart');
+    case 'product_unavailable':
+      refreshCatalog();
+      return s.flash('An item in your cart is no longer available');
+    case 'slot_full':
+    case 'slot_unavailable':
+      refreshDelivery();
+      s.set({ slot: null, scheduling: true });
+      return s.flash(e.code === 'slot_full' ? 'That window is fully booked · pick another' : 'That window is no longer available · pick another');
+    case 'not_deliverable':
+      return s.flash(`Sorry, we don’t deliver to ${e.detail || 'this address'} yet · change the address`);
+    case 'empty_cart':
+      return s.flash('Your cart is empty');
+    case 'below_minimum':
+      refreshConfig();
+      return s.flash(`Minimum order is $${Number(e.detail || 0).toFixed(2)} · add a few more items`);
+    case 'payment_method_unavailable':
+      refreshConfig();
+      return s.flash(`${s.payment} isn’t available right now · choose another payment method`);
+    case 'store_closed':
+      refreshConfig();
+      // Express only runs in store hours; a scheduled window still works.
+      s.set({ slot: null, scheduling: true });
+      return s.flash('We’re closed for express delivery right now · schedule a delivery instead');
+    case 'account_suspended':
+      return s.flash('Your account can’t place orders right now · please contact support');
+    case 'no_store':
+      return s.flash('We’re not taking orders right now · please try again later');
+    default:
+      return s.flash("Couldn't place your order. Please try again.");
+  }
+}
+
 export default function CheckoutScreen() {
   const pad = usePad();
   const t = useTotals();
@@ -67,8 +111,47 @@ export default function CheckoutScreen() {
   const schSub = slot && slot !== 'ASAP' && schDay ? scheduledLabel(slot, schDay) : 'Choose a delivery time that works for you';
   const total = money(t.total);
 
-  const placeOrder = () => {
+  const [placing, setPlacing] = useState(false);
+  // Admin → Settings: opening hours, minimum order, payment methods switched on.
+  const config = useStoreConfig();
+  const payDefs = PAY_DEFS.filter(([key]) => config.paymentMethods.includes(key));
+  const short = config.minOrder > 0 && t.sub < config.minOrder ? config.minOrder - t.sub : 0;
+  const closedNote = 'Closed' + (config.opens ? ' · ' + config.opens : '');
+
+  // Express only runs in store hours: switch to scheduling while closed.
+  useEffect(() => {
+    if (!config.open && useApp.getState().slot === 'ASAP') useApp.getState().set({ slot: null, scheduling: true });
+  }, [config.open]);
+  // A payment method the admin switched off falls back to the first one still on.
+  useEffect(() => {
+    const p = useApp.getState().payment;
+    if (config.paymentMethods.length && !config.paymentMethods.includes(p)) useApp.getState().set({ payment: config.paymentMethods[0] });
+  }, [config.paymentMethods]);
+
+  // Where the phone is, recorded with the order (asks for permission once; the order never waits on it).
+  const device = useRef<DeviceFix | null>(null);
+  useEffect(() => {
+    getDeviceFix({ ask: true, timeoutMs: 8_000 }).then((r) => {
+      if (r.ok) device.current = r.fix;
+    });
+  }, []);
+
+  const placeOrder = async () => {
+    if (placing) return;
     const s = useApp.getState();
+    if (short > 0) {
+      s.flash(`Add ${money(short)} more to reach the ${money(config.minOrder)} minimum order`);
+      return;
+    }
+    if (!config.paymentMethods.includes(s.payment)) {
+      s.flash(`${s.payment} isn’t available right now · choose another payment method`);
+      return;
+    }
+    if (s.slot === 'ASAP' && !config.open) {
+      s.set({ slot: null, scheduling: true });
+      s.flash('We’re closed for express delivery right now · schedule a delivery instead');
+      return;
+    }
     if (s.slot !== 'ASAP') {
       if (!s.slot || !s.schDay) {
         s.set({ scheduling: true });
@@ -82,8 +165,30 @@ export default function CheckoutScreen() {
         return;
       }
     }
-    s.placeOrder();
-    resetTo('/order-confirmed');
+    const address = s.addresses[s.addr] ?? s.addresses[0];
+    const postcode = postcodeOf(address.line);
+    if (!deliversTo(postcode)) {
+      s.flash(`Sorry, we don’t deliver to ${postcode || 'this address'} yet · change the address`);
+      return;
+    }
+    setPlacing(true);
+    try {
+      const placed = await submitOrder({
+        cart: s.cart,
+        address,
+        payment: s.payment,
+        slotId: s.slot === 'ASAP' ? null : s.slot,
+        date: s.schDay || null,
+        coupon: s.coupon,
+        device: device.current,
+      });
+      s.placeOrder(placed);
+      resetTo('/order-confirmed');
+    } catch (e) {
+      orderFailed(e instanceof OrderError ? e : new OrderError('network'));
+    } finally {
+      setPlacing(false);
+    }
   };
 
   return (
@@ -119,7 +224,9 @@ export default function CheckoutScreen() {
         {/* Delivery time */}
         <Animated.View layout={layout} style={[styles.card, { gap: 10 }]}>
           <Txt style={f(700, 14, 1.25)}>Delivery time</Txt>
-          <Tap onPress={() => set({ slot: 'ASAP', scheduling: false })} style={[styles.option, sel(express)]}>
+          <Tap
+            onPress={() => (config.open ? set({ slot: 'ASAP', scheduling: false }) : useApp.getState().flash('Express delivery is ' + closedNote.toLowerCase() + ' · schedule a delivery instead'))}
+            style={[styles.option, sel(express), !config.open && { opacity: 0.6 }]}>
             <IconBox>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                 <Path d="M2.5 7.5h10v9h-10v-9z" stroke={C.ink2} strokeWidth={1.5} strokeLinejoin="round" />
@@ -131,7 +238,11 @@ export default function CheckoutScreen() {
             <View style={styles.optionText}>
               <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>Express delivery</Txt>
               <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 11, 1.2), { color: C.muted }]}>Get your order as soon as possible</Txt>
-              <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.green }]}>Arrives in {delivery.etaMinutes} minutes</Txt>
+              {config.open ? (
+                <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.green }]}>Arrives in {delivery.etaMinutes} minutes</Txt>
+              ) : (
+                <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.danger }]}>{closedNote}</Txt>
+              )}
             </View>
             <Radio on={express} size={22} />
           </Tap>
@@ -194,7 +305,7 @@ export default function CheckoutScreen() {
         {/* Payment method */}
         <Animated.View layout={layout} style={[styles.card, { gap: 10 }]}>
           <Txt style={f(700, 14, 1.25)}>Payment method</Txt>
-          {PAY_DEFS.map(([key, label, fixedSub]) => {
+          {payDefs.map(([key, label, fixedSub]) => {
             const sub = key === 'Card' ? brandName(card) + ' ending ' + card.last4 : fixedSub;
             const on = payment === key;
             return (
@@ -216,6 +327,11 @@ export default function CheckoutScreen() {
           <SummaryRow label="Delivery fee" value={t.delivery === 0 ? 'FREE' : money(t.delivery)} />
           <SummaryRow label="Handling fee" value={money(t.service)} />
           {t.discount > 0 && <SummaryRow label={'Coupon · ' + coupon} value={'− ' + money(t.discount)} />}
+          {short > 0 && (
+            <Txt style={[f(500, 12, 1.4), { color: C.danger }]}>
+              Add {money(short)} more to reach the {money(config.minOrder)} minimum order
+            </Txt>
+          )}
           <View style={{ height: 1, backgroundColor: C.divider, marginVertical: 2 }} />
           <View style={[styles.summaryRow, { alignItems: 'center' }]}>
             <Txt style={f(700, 14.5, 1.25)}>To pay</Txt>
@@ -230,7 +346,7 @@ export default function CheckoutScreen() {
           <Txt style={[f(400, 12.5, 1.2), { color: C.muted }]}>{payment}</Txt>
         </View>
         <Tap onPress={placeOrder} pressedStyle={{ backgroundColor: C.limeHover }} style={styles.place}>
-          <Txt style={[f(700, 16, 1.2), { color: C.forest }]}>Place order</Txt>
+          <Txt style={[f(700, 16, 1.2), { color: C.forest }]}>{placing ? 'Placing order…' : 'Place order'}</Txt>
         </Tap>
       </View>
     </Screen>

@@ -8,7 +8,9 @@ import Svg, { Path } from 'react-native-svg';
 import { BackIcon, SearchIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { coordsOf } from '@/lib/location';
 import { goBack } from '@/lib/nav';
+import { deliversTo } from '@/lib/remote-postcodes';
 import { useApp, usePref } from '@/store/app-store';
 
 const TAGS = ['Home', 'Work', 'Other'] as const;
@@ -91,35 +93,49 @@ export default function AddressNewScreen() {
   const togglePref = useApp((s) => s.togglePref);
   const defAddr = usePref('defAddr', true);
 
-  const { from } = useLocalSearchParams<{ from?: string }>();
-  const [form, setForm] = useState({
-    street: '240 Lincoln Street',
-    unit: 'Apt 12',
-    suburb: 'Melbourne',
-    state: 'VIC',
-    postcode: '3000',
-    notes: 'Leave at the concierge desk',
-  });
+  // From "Use my current location": the GPS pin and the address found there.
+  const p = useLocalSearchParams<{ from?: string; lat?: string; lng?: string; street?: string; suburb?: string; state?: string; postcode?: string }>();
+  const { from } = p;
+  const located = p.lat && p.lng ? { lat: Number(p.lat), lng: Number(p.lng) } : null;
+  const [initial] = useState(() =>
+    located
+      ? { street: p.street ?? '', unit: '', suburb: p.suburb ?? '', state: p.state || 'VIC', postcode: p.postcode ?? '', notes: '' }
+      : {
+          street: '240 Lincoln Street',
+          unit: 'Apt 12',
+          suburb: 'Melbourne',
+          state: 'VIC',
+          postcode: '3000',
+          notes: 'Leave at the concierge desk',
+        },
+  );
+  const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const edit = (key: keyof typeof form) => (value: string) => {
     setError('');
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  const save = () => {
+  const save = async () => {
+    if (saving) return;
     const street = form.street.trim();
     const suburb = form.suburb.trim();
     const state = form.state.trim().toUpperCase();
     const postcode = form.postcode.trim();
     if (!street || !suburb || !state) return setError('Please fill in street, suburb and state');
     if (!/^\d{4}$/.test(postcode)) return setError('Enter a valid 4-digit postcode');
+    if (!deliversTo(postcode)) return setError(`Sorry, we don’t deliver to ${postcode} yet`);
 
     const unit = form.unit.trim();
     const area = suburb + ' ' + state;
-    useApp.getState().addAddress(
-      { tag: addrTag[0], label: addrTag, line: (unit ? unit + ', ' : '') + street + ', ' + area + ' ' + postcode, area },
-      defAddr,
-    );
+    const line = (unit ? unit + ', ' : '') + street + ', ' + area + ' ' + postcode;
+    // Keep the GPS pin unless the address was changed to somewhere else; otherwise look it up.
+    const moved = street !== initial.street.trim() || suburb !== initial.suburb.trim() || postcode !== initial.postcode.trim();
+    setSaving(true);
+    const pin = located && !moved ? located : await coordsOf(street + ', ' + area + ' ' + postcode + ', Australia');
+    setSaving(false);
+    useApp.getState().addAddress({ tag: addrTag[0], label: addrTag, line, area, ...(pin ?? {}) }, defAddr);
     flash(defAddr ? 'Address saved · set as default' : 'Address saved');
     // During onboarding (opened from the address picker) finish straight into the app.
     if (from === 'location') {
@@ -214,7 +230,7 @@ export default function AddressNewScreen() {
 
         <View style={[styles.footer, { paddingBottom: pad.bottom(30) }]}>
           <Tap onPress={save} accessibilityRole="button" pressedStyle={{ backgroundColor: C.limeHover }} style={styles.saveBtn}>
-            <Txt style={[f(700, 14, 1), { color: C.forest }]}>Save address</Txt>
+            <Txt style={[f(700, 14, 1), { color: C.forest }]}>{saving ? 'Saving…' : 'Save address'}</Txt>
           </Tap>
         </View>
       </KeyboardAvoidingView>

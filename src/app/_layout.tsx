@@ -20,6 +20,11 @@ import { startRemoteCatalog } from '@/lib/remote-catalog';
 import { startRemoteCoupons } from '@/lib/remote-coupons';
 import { startRemoteDelivery } from '@/lib/remote-delivery';
 import { startRemoteOffers } from '@/lib/remote-offers';
+import { startRemoteOrders } from '@/lib/remote-orders';
+import { startRemotePostcodes } from '@/lib/remote-postcodes';
+import { startRemoteConfig } from '@/lib/remote-config';
+import { startRemoteStores } from '@/lib/remote-store';
+import { startRemoteProfile } from '@/lib/remote-profile';
 import { checkSupabaseConnection } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -27,12 +32,17 @@ SplashScreen.preventAutoHideAsync();
 // Dev only: log once whether the Supabase keys in .env work.
 if (__DEV__) checkSupabaseConnection().then((msg) => console.log(msg));
 
-// Products added in the admin panel (Supabase) appear alongside the built-in catalogue.
+// Categories and products come only from Supabase (managed in the admin panel).
 startRemoteCatalog();
 startRemoteCoupons();
 startRemoteDelivery();
 startRemoteOffers();
 startRemoteBanners();
+startRemoteProfile();
+startRemoteOrders();
+startRemotePostcodes();
+startRemoteStores();
+startRemoteConfig();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({

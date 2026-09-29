@@ -4,14 +4,18 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { findProduct, type Product } from '@/data/catalog';
+import { REMOTE_PREFIX, money } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
+import { isActiveOrder, useOrders, type Order, type OrderStatus } from '@/lib/remote-orders';
 import { useApp } from '@/store/app-store';
 
 type OrderRow = {
+  id: string;
   no: string;
   date: string;
-  items: Product[];
+  items: { key: string; img: string }[];
+  /** Catalogue ids and quantities for Reorder. */
+  lines: { id: string; qty: number }[];
   total: string;
   status: string;
   statusBg: string;
@@ -19,11 +23,51 @@ type OrderRow = {
   live?: boolean;
 };
 
+const STATUS: Record<OrderStatus, [label: string, bg: string, color: string]> = {
+  placed: ['Placed', '#F1F9E2', C.greenOk],
+  confirmed: ['Confirmed', '#F1F9E2', C.greenOk],
+  picking: ['Picking', '#F1F9E2', C.greenOk],
+  packed: ['Packed', '#F1F9E2', C.greenOk],
+  out_for_delivery: ['On the way', '#F1F9E2', C.greenOk],
+  delivered: ['Delivered', '#F1F2EF', C.muted],
+  cancelled: ['Cancelled', '#FBEFEC', C.danger],
+};
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Today", "Yesterday" or "12 Sep". */
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86_400_000);
+  return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : d.getDate() + ' ' + MONTHS[d.getMonth()];
+}
+
+function toRow(o: Order): OrderRow {
+  const [status, statusBg, statusColor] = STATUS[o.status];
+  return {
+    id: o.id,
+    no: 'Order #' + o.no,
+    date: dayLabel(o.createdAt),
+    items: o.items.map((i, n) => ({ key: (i.productId ?? i.name) + n, img: i.img })),
+    // A deleted product has no id; it still counts as "unavailable" in the Reorder toast.
+    lines: o.items.map((i) => ({ id: i.productId ? REMOTE_PREFIX + i.productId : '', qty: i.qty })),
+    total: money(o.total),
+    status,
+    statusBg,
+    statusColor,
+    live: isActiveOrder(o),
+  };
+}
+
 const TABS = ['Active', 'Past Orders'] as const;
 
 function OrderCard({ o }: { o: OrderRow }) {
-  const reorder = () => useApp.getState().reorder(o.items.map((p) => p.id));
-  const secondary = () => (o.live ? router.push('/track') : useApp.getState().flash('Receipt sent to your email'));
+  // Items still in the catalogue go into the cart at their current price, then open the cart.
+  const reorder = () => {
+    if (useApp.getState().reorder(o.lines) > 0) router.push('/cart');
+  };
+  const secondary = () =>
+    o.live ? router.push({ pathname: '/track', params: { id: o.id } }) : useApp.getState().flash('Receipt sent to your email');
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -39,7 +83,7 @@ function OrderCard({ o }: { o: OrderRow }) {
       </View>
       <View style={styles.items}>
         {o.items.slice(0, 4).map((p) => (
-          <Photo key={p.id} source={p.img} crop={typeof p.img === 'string'} style={styles.thumb} />
+          <Photo key={p.key} source={p.img} crop style={styles.thumb} />
         ))}
         <Txt style={[f(700, 16.5, 1.2), { marginLeft: 'auto' }]}>{o.total}</Txt>
       </View>
@@ -58,27 +102,10 @@ function OrderCard({ o }: { o: OrderRow }) {
 export default function OrdersScreen() {
   const pad = usePad();
   const tab = useApp((s) => s.ordersTab);
-  const order = useApp((s) => s.order);
   const set = useApp((s) => s.set);
+  const { orders, loaded } = useOrders();
 
-  const list: OrderRow[] =
-    tab === 'Active'
-      ? order
-        ? [
-            {
-              no: order.no,
-              date: 'Today',
-              items: order.itemIds.map((id) => findProduct(id)).filter((p): p is Product => !!p),
-              total: order.total,
-              status: 'Picking',
-              statusBg: '#F1F9E2',
-              statusColor: C.greenOk,
-              live: true,
-            },
-          ]
-        : []
-      : // Past orders will come from Supabase once customer accounts are connected.
-        [];
+  const list = orders.filter((o) => isActiveOrder(o) === (tab === 'Active')).map(toRow);
 
   return (
     <Screen>
@@ -106,7 +133,10 @@ export default function OrdersScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}>
         <Animated.View key={tab} entering={FadeIn.duration(180)} style={{ gap: 10 }}>
-          {list.length === 0 && (
+          {!loaded && list.length === 0 && (
+            <Txt style={[f(400, 12.5, 1.5), { color: C.muted, textAlign: 'center', paddingVertical: 70 }]}>Loading your orders…</Txt>
+          )}
+          {loaded && list.length === 0 && (
             <View style={{ alignItems: 'center', gap: 8, paddingVertical: 70, paddingHorizontal: 20 }}>
               <Txt style={[f(700, 15.5, 1.3), { textAlign: 'center' }]}>No orders here yet</Txt>
               <Txt style={[f(400, 12.5, 1.5), { color: C.muted, maxWidth: 220, textAlign: 'center' }]}>

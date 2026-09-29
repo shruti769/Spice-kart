@@ -6,6 +6,10 @@ import { AppState } from 'react-native';
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+/** For requests made outside the client (native file uploads). */
+export const supabaseUrl = url ?? '';
+export const supabaseKey = key ?? '';
+
 /** False until `.env` has the project URL and publishable key. */
 export const isSupabaseConfigured = !!url && !!key;
 

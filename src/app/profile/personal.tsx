@@ -12,6 +12,7 @@ import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { goBack } from '@/lib/nav';
 import { pickPhoto } from '@/lib/pick-photo';
+import { saveProfile } from '@/lib/remote-profile';
 import { useApp } from '@/store/app-store';
 
 type FieldKey = 'first' | 'last' | 'email' | 'mobile' | 'dob';
@@ -229,14 +230,27 @@ export default function PersonalScreen() {
     goBack();
   };
 
-  const save = () => {
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (saving) return;
     const err = setup ? (nameErr ?? dobErr) : (nameErr ?? emailErr ?? mobileErr ?? dobErr);
     if (err) {
       setTried(true);
       flash(err);
       return;
     }
-    useApp.getState().set({ user: { first: v.first.trim(), last: v.last.trim(), email: v.email.trim(), mobile: local, dob: v.dob.trim(), avatar } });
+    setSaving(true);
+    try {
+      const user = await saveProfile({ first: v.first.trim(), last: v.last.trim(), email: v.email.trim(), mobile: local, dob: v.dob.trim(), avatar });
+      useApp.getState().set({ user });
+    } catch (e) {
+      if (__DEV__) console.warn('Could not save profile:', (e as Error).message);
+      flash("Couldn't save your details. Please try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
     if (setup) {
       flash('Welcome to Spice Kart, ' + v.first.trim() + '!');
       finishSetup();
@@ -335,7 +349,7 @@ export default function PersonalScreen() {
         </ScrollView>
         <View style={[styles.footer, { paddingBottom: pad.bottom(30) }]}>
           <Tap onPress={save} accessibilityRole="button" style={styles.saveBtn} pressedStyle={{ backgroundColor: C.limeHover }}>
-            <Txt style={styles.saveText}>{setup ? 'Save' : 'Save changes'}</Txt>
+            <Txt style={styles.saveText}>{saving ? 'Saving…' : setup ? 'Save' : 'Save changes'}</Txt>
           </Tap>
           {!setup && (
             <Tap onPress={discard} accessibilityRole="button" style={styles.discardBtn} pressedStyle={{ backgroundColor: '#FAFBF7' }}>

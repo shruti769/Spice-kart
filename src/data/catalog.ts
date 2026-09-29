@@ -214,7 +214,7 @@ export function productFromRow(r: RemoteProductRow): Product | null {
 }
 
 /**
- * Replace the Supabase products in the catalogue (local products are kept). PRODUCTS is mutated
+ * Replace the Supabase products in the catalogue. PRODUCTS is mutated
  * in place so existing imports see the new items; screens re-render via `catalogVersion`.
  */
 export function setRemoteProducts(list: Product[]) {
@@ -226,7 +226,7 @@ export function setRemoteProducts(list: Product[]) {
       if (BY_NAME.get(p.name) === p) BY_NAME.delete(p.name);
     }
   }
-  // Newest admin products first, ahead of the built-in ones.
+  // Newest admin products first.
   PRODUCTS.unshift(...list);
   for (const p of list) {
     BY_ID.set(p.id, p);
@@ -262,7 +262,15 @@ export function searchProducts(q: string) {
 }
 
 /** A saved delivery address. `area` is the short "Suburb STATE" shown in the Home header. */
-export type Address = { tag: string; label: string; line: string; area: string };
+export type Address = {
+  tag: string;
+  label: string;
+  line: string;
+  area: string;
+  /** Map pin (from the phone's GPS or geocoder), when known; sent with orders for the driver. */
+  lat?: number;
+  lng?: number;
+};
 
 export const ADDRESSES: Address[] = [
   { tag: 'H', label: 'Home', line: '123 Collins Street, Melbourne VIC 3000', area: 'Melbourne VIC' },

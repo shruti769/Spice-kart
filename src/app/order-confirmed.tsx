@@ -104,7 +104,7 @@ export default function OrderConfirmedScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: pad.bottom(30) }]}>
-        <Tap onPress={() => router.push('/track')} pressedStyle={{ backgroundColor: C.limeHover }} style={styles.track}>
+        <Tap onPress={() => router.push({ pathname: '/track', params: order?.id ? { id: order.id } : {} })} pressedStyle={{ backgroundColor: C.limeHover }} style={styles.track}>
           <Txt style={[f(700, 16, 1.2), { color: C.forest }]}>Track order</Txt>
         </Tap>
         <Tap onPress={() => goTab('home')} pressedStyle={{ backgroundColor: C.field }} style={styles.continue}>

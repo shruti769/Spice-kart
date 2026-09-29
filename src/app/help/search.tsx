@@ -7,16 +7,18 @@ import { Card, Chip, Row, type GlyphName } from '@/components/help/kit';
 import { BackIcon, SearchIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import type { HelpTopicId } from '@/data/help-topics';
 import { goBack } from '@/lib/nav';
 
-type Result = { title: string; sub?: string; tag: string; icon: GlyphName };
+/** `to`: the help topic and question (index) that answers it. */
+type Result = { title: string; sub?: string; tag: string; icon: GlyphName; to: [HelpTopicId, number] };
 
 const RESULTS: Result[] = [
-  { title: 'How refunds are processed', sub: 'Money returns to Spice Kart Money instantly', tag: 'Refunds', icon: 'refund' },
-  { title: 'Refund for a missing item', sub: 'Report within 24 hours of delivery', tag: 'Orders', icon: 'box' },
-  { title: 'Refund to card instead of wallet', sub: 'Takes 3–5 business days', tag: 'Payments', icon: 'card' },
-  { title: 'Wallet refund timelines', tag: 'Wallet', icon: 'coin' },
-  { title: 'Cancelled order refunds', tag: 'Delivery', icon: 'truck' },
+  { title: 'How refunds are processed', sub: 'Money returns to Spice Kart Money instantly', tag: 'Refunds', icon: 'refund', to: ['refunds', 0] },
+  { title: 'Refund for a missing item', sub: 'Report within 24 hours of delivery', tag: 'Orders', icon: 'box', to: ['orders', 1] },
+  { title: 'Refund to card instead of wallet', sub: 'Takes 3–5 business days', tag: 'Payments', icon: 'card', to: ['refunds', 0] },
+  { title: 'Wallet refund timelines', tag: 'Wallet', icon: 'coin', to: ['refunds', 1] },
+  { title: 'Cancelled order refunds', tag: 'Delivery', icon: 'truck', to: ['orders', 2] },
 ];
 
 const FILTERS = ['All', 'Refunds', 'Payments', 'Wallet'];
@@ -118,7 +120,7 @@ export default function HelpSearchScreen() {
                   title={r.title}
                   sub={r.sub}
                   chevron
-                  onPress={() => router.push('/help/article')}
+                  onPress={() => router.push({ pathname: '/help/[topic]', params: { topic: r.to[0], q: String(r.to[1]) } })}
                   right={
                     <Txt numberOfLines={1} style={[f(400, 11, 1), { color: '#8C8C86' }]}>
                       {r.tag}

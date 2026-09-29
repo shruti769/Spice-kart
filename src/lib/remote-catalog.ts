@@ -77,7 +77,7 @@ export function useProducts(): Product[] {
   return useMemo(() => [...PRODUCTS], [version]);
 }
 
-/** Current categories (from Supabase, built-in until the first fetch); new array on each change. */
+/** Current categories (from Supabase; empty until the first fetch); new array on each change. */
 export function useCategories(): Category[] {
   const version = useCatalogVersion((s) => s.version);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- CATEGORIES is mutated in place; version marks each change

@@ -7,6 +7,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Grid, Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
+import { TOPIC_OF_TAG, type HelpTopicId } from '@/data/help-topics';
 
 const TOPICS: [string, GlyphName][] = [
   ['Orders', 'box'],
@@ -17,18 +18,21 @@ const TOPICS: [string, GlyphName][] = [
   ['Addresses', 'pin'],
 ];
 
-const FAQS: { q: string; a?: string }[] = [
+/** Each FAQ opens its topic with that question expanded (`q` = its index in the topic). */
+const FAQS: { q: string; a?: string; topic: HelpTopicId; index: number }[] = [
   {
     q: 'Where is my order?',
     a: 'Open Orders and tap Track to follow your shopper on the map, with a live arrival time. Tracking begins once picking starts.',
+    topic: 'orders',
+    index: 0,
   },
-  { q: 'An item is missing from my delivery' },
-  { q: 'How do refunds to Spice Kart Money work?' },
-  { q: 'Can I change my address after ordering?' },
-  { q: 'Why was my payment declined?' },
+  { q: 'An item is missing from my delivery', topic: 'orders', index: 1 },
+  { q: 'How do refunds to Spice Kart Money work?', topic: 'refunds', index: 1 },
+  { q: 'Can I change my address after ordering?', topic: 'addresses', index: 0 },
+  { q: 'Why was my payment declined?', topic: 'payments', index: 0 },
 ];
 
-const openArticle = () => router.push('/help/article');
+const openTopic = (topic: HelpTopicId, q = 0) => router.push({ pathname: '/help/[topic]', params: { topic, q: String(q) } });
 
 /** Help centre (`sHelp`). */
 export default function HelpScreen() {
@@ -50,7 +54,7 @@ export default function HelpScreen() {
             keyOf={(t) => t[0]}
             renderItem={([label, icon]) => (
               <Tap
-                onPress={openArticle}
+                onPress={() => openTopic(TOPIC_OF_TAG[label])}
                 pressedStyle={{ borderColor: C.lime }}
                 style={[
                   {
@@ -88,7 +92,7 @@ export default function HelpScreen() {
         <View style={{ gap: 8 }}>
           <Caption>FREQUENT QUESTIONS</Caption>
           <Card>
-            {FAQS.map(({ q, a }) => (
+            {FAQS.map(({ q, a, topic, index }) => (
               <View
                 key={q}
                 style={{
@@ -98,7 +102,7 @@ export default function HelpScreen() {
                   paddingHorizontal: 12,
                   gap: a ? 7 : 0,
                 }}>
-                <Tap onPress={openArticle} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Tap onPress={() => openTopic(topic, index)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Txt style={[f(a ? 600 : 500, 12.5, 1.35), { flex: 1, color: C.ink }]}>{q}</Txt>
                   <Txt style={[f(600, 14, 1), { color: '#8C8C86', flexShrink: 0 }]}>{a ? '−' : '+'}</Txt>
                 </Tap>

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { useCatalogVersion } from '@/lib/remote-catalog';
 import { applyCouponRules, useCouponStore } from '@/lib/remote-coupons';
 import { slotFee, useDeliveryStore } from '@/lib/remote-delivery';
 
@@ -16,9 +17,10 @@ import {
 export type SortOption = 'Recommended' | 'Price: Low to High' | 'Price: High to Low' | 'Popular' | 'New';
 export type PriceFilter = 'u5' | '5to10' | 'o10' | null;
 export type PaymentKey = 'Card' | 'Apple Pay' | 'Google Pay' | 'PayID';
-export type User = { first: string; last: string; email: string; /** 9 digits after +61. */ mobile: string; dob: string; /** Local profile photo URI. */ avatar?: string };
+export type User = { first: string; last: string; email: string; /** 9 digits after +61. */ mobile: string; dob: string; /** Profile photo URL (Supabase Storage). */ avatar?: string };
 export type SavedCard = { brand: 'VISA' | 'MASTERCARD' | 'AMEX'; last4: string; /** MM/YY */ exp: string };
-export type PlacedOrder = { no: string; itemIds: string[]; qty: Record<string, number>; total: string };
+/** The last order placed on this device (`id` = Supabase `orders.id`, for tracking). */
+export type PlacedOrder = { id?: string; no: string; itemIds: string[]; qty: Record<string, number>; total: string };
 
 type Prefs = Partial<
   Record<'push' | 'email' | 'marketing' | 'loc' | 'share' | 'sens' | 'defAddr' | 'saveCard' | 'defCard', boolean>
@@ -82,8 +84,10 @@ type Actions = {
   set: (patch: Partial<State>) => void;
   bump: (id: string, d: number) => void;
   flash: (msg: string) => void;
-  placeOrder: () => void;
-  reorder: (ids: string[]) => void;
+  /** Record an order the server accepted (`no` like "SK10001") and empty the cart. */
+  placeOrder: (placed: { id: string; no: string; total: number }) => void;
+  /** Add a past order's lines to the cart; returns how many lines were added. */
+  reorder: (lines: { id: string; qty: number }[]) => number;
   togglePref: (k: keyof Prefs, def: boolean) => void;
   addRecentTerm: (term: string) => void;
   clearRecentTerms: () => void;
@@ -155,32 +159,40 @@ export const useApp = create<State & Actions>()(
     if (d > 0) get().flash('Added to cart');
   },
 
-  placeOrder: () => {
-    const { cart, coupon, slot } = get();
-    const t = cartTotals(cart, coupon, slot);
+  placeOrder: (placed) => {
+    const { cart } = get();
     set({
       order: {
-        // Base chosen so the design's $25.78 basket reads #SK10482.
-        no: 'Order #SK' + (10457 + Math.floor(t.total)),
+        id: placed.id,
+        no: 'Order #' + placed.no,
         itemIds: Object.keys(cart),
         qty: { ...cart },
-        total: money(t.total),
+        total: money(placed.total),
       },
       cart: {},
       coupon: null,
     });
   },
 
-  reorder: (ids) => {
+  reorder: (lines) => {
     const cart = { ...get().cart };
-    let unavailable = 0;
-    for (const id of ids) {
+    let added = 0;
+    for (const { id, qty } of lines) {
       const p = findProduct(id);
-      if (p && !p.out) cart[p.id] = (cart[p.id] ?? 0) + 1;
-      else unavailable++;
+      if (!p || p.out || qty <= 0) continue;
+      cart[p.id] = (cart[p.id] ?? 0) + qty;
+      added++;
     }
     set({ cart });
-    get().flash(unavailable ? unavailable + ' item unavailable · rest added' : 'Added to cart');
+    const missing = lines.length - added;
+    get().flash(
+      added === 0
+        ? 'These items are no longer available'
+        : missing
+          ? `${missing} item${missing === 1 ? '' : 's'} unavailable · rest added to cart`
+          : 'Added to cart',
+    );
+    return added;
   },
 
   addRecentTerm: (term) => {
@@ -291,10 +303,15 @@ export function cartTotals(cart: Record<string, number>, coupon: CouponCode | nu
 }
 
 export const useTotals = () => {
+  // cartTotals also reads the catalogue, coupons and delivery stores, which the compiler can't see,
+  // so it must not memoise the result on cart / coupon / slot alone.
+  'use no memo';
   const cart = useApp((s) => s.cart);
   const coupon = useApp((s) => s.coupon);
   const slot = useApp((s) => s.slot);
-  // Re-run when coupons or delivery settings load or an admin edits them.
+  // Re-run when products, coupons or delivery settings load or an admin edits them. Without the
+  // catalogue, a cart restored on launch counts 0 items until the products arrive.
+  useCatalogVersion((s) => s.version);
   useCouponStore((s) => s.coupons);
   useDeliveryStore((s) => s.settings);
   useDeliveryStore((s) => s.slots);
