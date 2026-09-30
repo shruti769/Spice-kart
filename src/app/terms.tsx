@@ -5,28 +5,29 @@ import { Row, Section, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Txt } from '@/components/ui/primitives';
 import { f } from '@/constants/theme';
+import type { PolicyId } from '@/lib/policies';
 
-const GROUPS: { title: string; rows: [string, string, GlyphName][] }[] = [
+const GROUPS: { title: string; rows: [string, string, GlyphName, PolicyId][] }[] = [
   {
     title: 'AGREEMENTS',
     rows: [
-      ['Terms of Service', 'Your agreement with Spice Kart', 'doc'],
-      ['Privacy Policy', 'How we handle your personal data', 'doc'],
+      ['Terms of Service', 'Your agreement with Spice Kart', 'doc', 'terms'],
+      ['Privacy Policy', 'How we handle your personal data', 'doc', 'privacy'],
     ],
   },
   {
     title: 'ORDERS & DELIVERY',
     rows: [
-      ['Refund & Cancellation Policy', 'Cancelling, refunds and restocking fees', 'refund'],
-      ['Delivery Policy', 'Windows, coverage and failed deliveries', 'truck'],
+      ['Refund & Cancellation Policy', 'Cancelling, refunds and restocking fees', 'refund', 'refund'],
+      ['Delivery Policy', 'Windows, coverage and failed deliveries', 'truck', 'delivery'],
     ],
   },
   {
     title: 'MONEY',
     rows: [
-      ['Payment Policy', 'Charges, holds and receipts', 'card'],
-      ['Wallet Terms', 'Spice Kart Money balance and expiry', 'coin'],
-      ['Promotional Terms', 'Coupons, offers and eligibility', 'doc'],
+      ['Payment Policy', 'Charges, holds and receipts', 'card', 'payment'],
+      ['Wallet Terms', 'Top-ups, cashback and withdrawals', 'coin', 'wallet'],
+      ['Promotional Terms', 'Coupons, offers and eligibility', 'doc', 'promo'],
     ],
   },
 ];
@@ -42,8 +43,8 @@ export default function TermsScreen() {
         showsVerticalScrollIndicator={false}>
         {GROUPS.map((g) => (
           <Section key={g.title} title={g.title}>
-            {g.rows.map(([title, sub, icon]) => (
-              <Row key={title} icon={icon} title={title} sub={sub} chevron onPress={() => router.push('/policy')} />
+            {g.rows.map(([title, sub, icon, id]) => (
+              <Row key={title} icon={icon} title={title} sub={sub} chevron onPress={() => router.push({ pathname: '/policy', params: { id } })} />
             ))}
           </Section>
         ))}

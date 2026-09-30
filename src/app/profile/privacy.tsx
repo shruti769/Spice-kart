@@ -120,7 +120,7 @@ export default function PrivacyScreen() {
 
         <Section label="YOUR DATA">
           <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed to you" onPress={downloadData} />
-          <LinkRow icon={<DocIcon />} title="Privacy policy" sub="How we collect and use your data" onPress={() => router.push('/policy')} />
+          <LinkRow icon={<DocIcon />} title="Privacy policy" sub="How we collect and use your data" onPress={() => router.push({ pathname: '/policy', params: { id: 'privacy' } })} />
         </Section>
 
         <Tap

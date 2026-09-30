@@ -255,7 +255,8 @@ export function subcategoriesOf(cat: CategoryId): Subcategory[] {
 }
 
 export function discountPct(p: Product) {
-  return p.orig > 0 ? Math.round((1 - p.price / p.orig) * 100) : 0;
+  // Rounded down, like the admin's product form, so both show the same "% OFF".
+  return p.orig > 0 ? Math.floor((1 - p.price / p.orig) * 100) : 0;
 }
 
 export function searchProducts(q: string) {

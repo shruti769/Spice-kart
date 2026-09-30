@@ -149,7 +149,7 @@ export default function LoginScreen() {
             By continuing, you agree to Spice Kart&apos;s{' '}
             <Txt accessibilityRole="link" onPress={() => router.push('/terms')} style={styles.legal}>Terms of Service</Txt>
             {' & '}
-            <Txt accessibilityRole="link" onPress={() => router.push('/policy')} style={styles.legal}>Privacy Policy.</Txt>
+            <Txt accessibilityRole="link" onPress={() => router.push({ pathname: '/policy', params: { id: 'privacy' } })} style={styles.legal}>Privacy Policy.</Txt>
           </Txt>
         </View>
       </ScrollView>
