@@ -112,7 +112,7 @@ begin
     raise exception 'empty_cart';
   end if;
   if coalesce(trim(p_address_line), '') = '' then raise exception 'no_address'; end if;
-  v_method := case p_payment when 'Card' then 'card' when 'Apple Pay' then 'apple_pay' when 'Google Pay' then 'google_pay' when 'PayID' then 'payid' end;
+  v_method := case p_payment when 'Card' then 'card' when 'Apple Pay' then 'apple_pay' when 'Google Pay' then 'google_pay' when 'PayID' then 'payid' when 'Spice Kart Money' then 'wallet' end;
   if v_method is null then raise exception 'bad_payment'; end if;
   if not public.delivers_to(v_postcode) then raise exception 'not_deliverable:%', coalesce(v_postcode, ''); end if;
 

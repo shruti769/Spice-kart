@@ -16,7 +16,7 @@ import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { findProduct, money, type Product } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
-import { useAddress, useApp, useTotals, type PlacedOrder } from '@/store/app-store';
+import { useAddress, useApp, usePref, useTotals, type PlacedOrder } from '@/store/app-store';
 
 /** Quantities are read when the store records them on the order (see report); otherwise ×1. */
 const qtyOf = (order: PlacedOrder, id: string) => order.qty[id] ?? 1;
@@ -54,6 +54,7 @@ function SuccessBadge() {
 export default function OrderConfirmedScreen() {
   const pad = usePad();
   const order = useApp((s) => s.order);
+  const hideSensitive = usePref('sens', true);
   const slot = useApp((s) => s.slot);
   const schDay = useApp((s) => s.schDay);
   const payment = useApp((s) => s.payment);
@@ -89,10 +90,11 @@ export default function OrderConfirmedScreen() {
             <View style={[styles.card, { marginRight: -9 }]}>
               {items.map((p, i) => {
                 const qty = qtyOf(order, p.id);
+                const hidden = hideSensitive && !!p.sensitive;
                 return (
                   <View key={p.id} style={[styles.item, i < items.length - 1 && styles.divider]}>
-                    <Photo source={p.img} crop={typeof p.img === 'string'} style={styles.thumb} />
-                    <Txt numberOfLines={2} style={[f(500, 13.5, 1.3), { flex: 1 }]}>{p.name}</Txt>
+                    <Photo source={p.img} crop={typeof p.img === 'string'} blur={hidden} style={styles.thumb} />
+                    <Txt numberOfLines={2} style={[f(500, 13.5, 1.3), { flex: 1 }]}>{hidden ? 'Personal care item' : p.name}</Txt>
                     <Txt numberOfLines={1} style={[f(400, 12.5, 1.2), { color: C.muted }]}>×{qty}</Txt>
                     <Txt style={f(700, 14, 1.2)}>{money(p.price * qty)}</Txt>
                   </View>

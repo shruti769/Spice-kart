@@ -1,7 +1,10 @@
 import type { DeliverySettings } from '@/lib/remote-delivery';
+import type { HelpArticle } from '@/lib/remote-help';
 
 /** One question in a help topic: tap to expand. */
 export type HelpQuestion = {
+  /** `help_articles.id` when it came from Supabase (views and votes are counted). */
+  id?: string;
   q: string;
   sub: string;
   /** Paragraph(s) under the question. */
@@ -27,246 +30,339 @@ export type HelpTopicId = 'orders' | 'delivery' | 'payments' | 'refunds' | 'wall
 
 const money = (v: number) => '$' + (Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2));
 
+const cutoffLabel = (mins: number) =>
+  mins >= 60 ? `${mins / 60} hour${mins === 60 ? '' : 's'}` : `${mins} minutes`;
+
+/** Fills the live-value placeholders admins can use in Help centre articles. */
+function fillPlaceholders(text: string, s: DeliverySettings, area: string) {
+  const values: Record<string, string> = {
+    eta_minutes: String(s.etaMinutes),
+    book_ahead_days: String(s.bookAheadDays),
+    express_fee: money(s.expressFee),
+    free_over: money(s.freeOver),
+    scheduled_fee: money(s.scheduledFee),
+    handling_fee: money(s.handlingFee),
+    slot_cutoff: cutoffLabel(s.cutoffMinutes),
+    delivery_area: area,
+  };
+  return text.replace(/\{(\w+)\}/g, (m, key: string) => values[key] ?? m);
+}
+
 /**
- * Help centre topics. Delivery fees, times and the delivery area come from the live Supabase
- * settings so the answers always match what checkout charges.
+ * Help centre topics. Questions come from the admin's Help centre (`remote`, once loaded); until
+ * then the built-in ones below are shown. Delivery fees, times and the delivery area come from the
+ * live Supabase settings so the answers always match what checkout charges.
  */
-export function helpTopics(s: DeliverySettings, postcodes: string[]): HelpTopic[] {
+export function helpTopics(
+  s: DeliverySettings,
+  postcodes: string[],
+  remote?: { articles: HelpArticle[]; loaded: boolean },
+): HelpTopic[] {
   const area = postcodes.length
     ? `We currently deliver to these postcodes: ${[...postcodes].sort().join(', ')}.`
     : 'We deliver across Melbourne.';
-  return [
-    {
-      id: 'orders',
-      title: 'Orders',
-      intro: 'Track, change or cancel an order, and fix problems with what arrived.',
-      about: 'orders',
-      questions: [
-        {
-          q: 'Where is my order?',
-          sub: 'Live tracking and arrival times',
-          body: 'Every order can be followed live from the moment your shopper starts picking. You’ll see each item being picked, then the driver on the map with an updated arrival time.',
-          stepsTitle: 'HOW TO TRACK',
-          steps: [
-            'Open Orders from the Account tab.',
-            'Select the active order.',
-            'Tap Track to see picking progress and the driver on the map.',
-            'We’ll notify you when the driver is 5 minutes away.',
-          ],
-          note: 'If tracking hasn’t updated for 15 minutes, contact support and we’ll call the driver for you.',
-        },
-        {
-          q: 'An item is missing from my delivery',
-          sub: 'Report it and get refunded',
-          body: 'Sorry about that. Report the missing item within 24 hours of delivery and we’ll refund it straight away.',
-          stepsTitle: 'HOW TO REPORT IT',
-          steps: [
-            'Open Orders and select the delivered order.',
-            'Tap Report an issue.',
-            'Choose the missing items.',
-            'Submit — the refund goes to Spice Kart Money.',
-          ],
-          note: 'Prefer a refund to your card? Choose “Refund to card” when you report it.',
-        },
-        {
-          q: 'Cancel or change an order',
-          sub: 'Before picking starts',
-          body: 'You can cancel or change an order until your shopper starts picking it. After that, contact support and we’ll do our best to help.',
-          stepsTitle: 'TO CANCEL OR CHANGE',
-          steps: ['Open Orders and select the active order.', 'Tap Cancel order or Change items.', 'Confirm your changes.'],
-          note: 'Cancelled orders are refunded in full to the original payment method.',
-        },
-        {
-          q: 'Substitutions explained',
-          sub: 'What happens when an item is out of stock',
-          body: 'If an item runs out after you order, your shopper picks the closest match of the same or better quality at no extra cost. If there’s no good match, the item is refunded.',
-          stepsTitle: 'YOUR OPTIONS',
-          steps: [
-            'Approve or reject substitutions in the Track screen.',
-            'Rejected substitutions are refunded automatically.',
-            'You’re never charged more than the original item.',
-          ],
-        },
-      ],
-    },
-    {
-      id: 'delivery',
-      title: 'Delivery',
-      intro: 'Delivery times, fees, scheduled slots and what to do if you’re not home.',
-      about: 'delivery',
-      questions: [
-        {
-          q: 'Delivery times & fees',
-          sub: 'Express vs scheduled',
-          body: `Express delivery arrives in about ${s.etaMinutes} minutes across Melbourne. Scheduled delivery lets you book a delivery window up to ${s.bookAheadDays} days ahead.`,
-          stepsTitle: 'FEES AT A GLANCE',
-          steps: [
-            `Express: ${money(s.expressFee)}, free over ${money(s.freeOver)}.`,
-            `Scheduled slot: ${money(s.scheduledFee)}.`,
-            `Handling fee of ${money(s.handlingFee)} per order.`,
-            'Fees are shown before you pay.',
-          ],
-          note: 'Surge fees never apply — the price you see is the price you pay.',
-        },
-        {
-          q: 'Booking a scheduled slot',
-          sub: 'Choose a delivery window',
-          body: `Pick a day and a delivery window at checkout. Slots close ${s.cutoffMinutes >= 60 ? `${s.cutoffMinutes / 60} hour${s.cutoffMinutes === 60 ? '' : 's'}` : `${s.cutoffMinutes} minutes`} before they start.`,
-          stepsTitle: 'TO BOOK A SLOT',
-          steps: ['Go to checkout.', 'Tap Schedule under Delivery time.', 'Choose a day and a window.', 'Place your order.'],
-          note: 'Popular windows fill up — book early for weekends.',
-        },
-        {
-          q: 'I wasn’t home for my delivery',
-          sub: 'Leave-at-door and redelivery',
-          body: 'If you’re not home, your driver will call you. If they can’t reach you, they’ll leave the order at your door when it’s safe to do so, or bring it back to the store.',
-          stepsTitle: 'NEXT TIME',
-          steps: ['Add delivery instructions to your address.', 'Keep your phone nearby around the arrival time.', 'Contact support to arrange a redelivery.'],
-        },
-        {
-          q: 'Where do you deliver?',
-          sub: 'Coverage areas',
-          body: `${area} Enter your address or use your current location to check if we deliver to you.`,
-        },
-      ],
-    },
-    {
-      id: 'payments',
-      title: 'Payments',
-      intro: 'Cards, Apple Pay, failed payments and receipts.',
-      about: 'payments',
-      questions: [
-        {
-          q: 'Why was my payment declined?',
-          sub: 'Common causes and fixes',
-          body: 'Declines usually come from your bank. Common reasons are an expired card, insufficient funds or a security hold.',
-          stepsTitle: 'TRY THIS',
-          steps: [
-            'Check the card’s expiry and CVV.',
-            'Try Apple Pay or another card.',
-            'Contact your bank if it keeps failing.',
-            'Retry — nothing is charged for failed attempts.',
-          ],
-          note: 'Pending authorisations from failed attempts drop off within 3–5 days.',
-        },
-        {
-          q: 'Accepted payment methods',
-          sub: 'Cards, wallets and Spice Kart Money',
-          body: 'We accept Visa, Mastercard and American Express, Apple Pay, Google Pay, PayID bank transfer and your Spice Kart Money balance.',
-          stepsTitle: 'TO CHANGE HOW YOU PAY',
-          steps: ['Go to checkout.', 'Choose a method under Payment method.', 'Add a new card from Account → Payments.'],
-        },
-        {
-          q: 'Getting a tax invoice',
-          sub: 'Receipts for every order',
-          body: 'Every order comes with a GST tax invoice, sent to your email once the order is delivered.',
-          stepsTitle: 'TO GET A COPY',
-          steps: ['Open Orders.', 'Select the order.', 'Tap View receipt.'],
-          note: 'Add an email address in Personal details to receive receipts.',
-        },
-      ],
-    },
-    {
-      id: 'refunds',
-      title: 'Refunds',
-      intro: 'How refunds work, how long they take and where the money goes.',
-      about: 'refunds',
-      questions: [
-        {
-          q: 'How refunds are processed',
-          sub: 'Money returns to Spice Kart Money instantly',
-          body: 'If an item is missing, damaged or unavailable, we refund it automatically once your shopper marks the order complete. Refunds go to Spice Kart Money by default so you can spend them on your next order straight away.',
-          stepsTitle: 'HOW TO REQUEST A REFUND',
-          steps: [
-            'Open Orders and select the order.',
-            'Tap Report an issue and choose the affected items.',
-            'Add a photo if the item arrived damaged.',
-            'Submit most refunds are approved within minutes.',
-          ],
-          note: 'Prefer the money back on your card? Choose “Refund to card” when you report the issue — bank refunds take 3–5 business days.',
-        },
-        {
-          q: 'How do refunds to Spice Kart Money work?',
-          sub: 'Instant credit you can spend',
-          body: 'Refunds to Spice Kart Money land in your balance straight away and are used automatically at checkout when you pay with your wallet.',
-          stepsTitle: 'TO SEE YOUR REFUNDS',
-          steps: ['Open the Wallet.', 'Check Recent activity for the refund.', 'Pay with Spice Kart Money on your next order.'],
-          note: 'You can withdraw your balance to your bank at any time.',
-        },
-        {
-          q: 'Damaged or expired items',
-          sub: 'Photo and refund',
-          body: 'If something arrives damaged or past its use-by date, send us a photo within 24 hours and we’ll refund it.',
-          stepsTitle: 'TO REPORT IT',
-          steps: ['Open Orders and select the order.', 'Tap Report an issue.', 'Choose the item and add a photo.', 'Submit.'],
-        },
-      ],
-    },
-    {
-      id: 'wallet',
-      title: 'Wallet',
-      intro: 'Spice Kart Money: top-ups, cashback and withdrawals.',
-      about: 'wallet',
-      questions: [
-        {
-          q: 'What is Spice Kart Money?',
-          sub: 'Your in-app balance',
-          body: 'Spice Kart Money is a prepaid balance you can use on any order. It holds refunds, cashback and top-ups.',
-          stepsTitle: 'GETTING STARTED',
-          steps: ['Open the Wallet tab.', 'Tap Add money.', 'Choose an amount and pay by card.', 'Your balance updates instantly.'],
-          note: 'Balances are protected and never expire.',
-        },
-        {
-          q: 'Earning 5% cashback',
-          sub: 'Pay with wallet, get money back',
-          body: 'Pay for an order with Spice Kart Money and get 5% of the order total back in your wallet once it’s delivered.',
-          stepsTitle: 'HOW IT WORKS',
-          steps: ['Top up your wallet.', 'Choose Spice Kart Money at checkout.', 'Cashback lands after delivery.'],
-        },
-        {
-          q: 'Withdrawing your balance',
-          sub: 'Move money to your bank',
-          body: 'You can move your Spice Kart Money balance to your bank account at any time, free of charge.',
-          stepsTitle: 'TO WITHDRAW',
-          steps: ['Open the Wallet.', 'Tap Withdraw.', 'Enter the amount and confirm.'],
-          note: 'Withdrawals reach your bank within 1–2 business days.',
-        },
-      ],
-    },
-    {
-      id: 'addresses',
-      title: 'Addresses',
-      intro: 'Save, edit and switch delivery addresses.',
-      about: 'addresses',
-      questions: [
-        {
-          q: 'Can I change my address after ordering?',
-          sub: 'Before picking starts',
-          body: 'You can change the delivery address until your shopper starts picking, as long as the new address is in the same delivery zone.',
-          stepsTitle: 'TO CHANGE',
-          steps: ['Open the active order.', 'Tap Delivery address.', 'Select or add an address.', 'Confirm — fees update if needed.'],
-          note: 'After picking starts, contact support and we’ll try to reroute the driver.',
-        },
-        {
-          q: 'Adding delivery instructions',
-          sub: 'Gate codes, units and notes',
-          body: 'Delivery instructions help your driver find you, like a gate code, unit number or where to leave the order.',
-          stepsTitle: 'TO ADD INSTRUCTIONS',
-          steps: ['Open Account → Addresses.', 'Add or edit an address.', 'Fill in Delivery instructions and save.'],
-        },
-        {
-          q: 'Setting a default address',
-          sub: 'Faster checkout',
-          body: 'Your default address is used automatically at checkout, so you don’t have to pick it every time.',
-          stepsTitle: 'TO SET IT',
-          steps: ['Open Account → Addresses.', 'Choose an address.', 'Turn on Set as default address.'],
-        },
-      ],
-    },
-  ];
+  const fill = (t: string) => fillPlaceholders(t, s, area);
+  const fillQ = (item: HelpQuestion): HelpQuestion => ({
+    ...item,
+    q: fill(item.q),
+    sub: fill(item.sub),
+    body: fill(item.body),
+    steps: item.steps?.map(fill),
+    note: item.note ? fill(item.note) : undefined,
+  });
+  return TOPICS.map((t) => ({
+    ...t,
+    questions: remote?.loaded
+      ? remote.articles
+          .filter((a) => a.topic === t.id)
+          .map((a) =>
+            fillQ({
+              id: a.id,
+              q: a.q,
+              sub: a.sub,
+              body: a.body,
+              stepsTitle: a.stepsTitle || undefined,
+              steps: a.steps.length ? a.steps : undefined,
+              note: a.note || undefined,
+            }),
+          )
+      : BUILT_IN[t.id].map(fillQ),
+  }));
 }
 
-/** Help-centre search results and home-screen FAQs point at a topic question. */
+const TOPICS: Omit<HelpTopic, 'questions'>[] = [
+  { id: 'orders', title: 'Orders', intro: 'Track an order, order again, and fix problems with what arrived.', about: 'orders' },
+  { id: 'delivery', title: 'Delivery', intro: 'Delivery times, fees, scheduled slots and what to do if you’re not home.', about: 'delivery' },
+  { id: 'payments', title: 'Payments', intro: 'Payment methods, declined payments and receipts.', about: 'payments' },
+  { id: 'refunds', title: 'Refunds', intro: 'How to ask for a refund and how long it takes.', about: 'refunds' },
+  { id: 'wallet', title: 'Wallet', intro: 'Spice Kart Money: your balance and top-ups.', about: 'wallet' },
+  { id: 'addresses', title: 'Addresses', intro: 'Save and choose delivery addresses.', about: 'addresses' },
+];
+
+/**
+ * Shown until the admin's Help centre articles load (and without Supabase). Same text as the
+ * starter articles in the admin's supabase/support.sql; `{…}` placeholders are filled from the
+ * live delivery settings.
+ */
+const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
+  orders: [
+  {
+    q: 'Where is my order?',
+    sub: 'Live status and arrival time',
+    body: 'Every order shows its live status — confirmed, picking, packed, out for delivery and delivered — with the time each step happened and your estimated arrival. The Track screen updates by itself as your order moves along.',
+    stepsTitle: 'HOW TO TRACK',
+    steps: [
+      'Tap Orders in the bottom bar.',
+      'Find your order under Active.',
+      'Tap Track to see each step and your estimated arrival.',
+      'Need the store? Tap the phone button on the store card to call them.',
+    ],
+    note: 'If your order is running late, Track shows RUNNING LATE. Contact support any time and we’ll chase it up for you.',
+  },
+  {
+    q: 'An item is missing from my delivery',
+    sub: 'Report it and we’ll sort it out',
+    body: 'Sorry about that. Report it in the app and our support team will check your order and arrange a refund for anything that didn’t arrive.',
+    stepsTitle: 'HOW TO REPORT IT',
+    steps: [
+      'Tap your avatar on Home, then Contact support.',
+      'Tap Report an issue and choose Missing item.',
+      'Tell us which item is missing and add a photo if it helps.',
+      'Tap Continue to chat — we’ll reply in the same chat.',
+    ],
+    note: 'Please report missing items as soon as you can after delivery so we can check with the store.',
+  },
+  {
+    q: 'Cancel or change an order',
+    sub: 'Contact us before picking starts',
+    body: 'Orders can’t be cancelled or edited in the app yet. If you need to cancel or change something, contact support as soon as possible — we can usually help until the store starts picking your groceries.',
+    stepsTitle: 'TO ASK FOR A CHANGE',
+    steps: [
+      'Tap your avatar on Home, then Contact support.',
+      'Tap Live chat.',
+      'Send your order number and what you’d like to change.',
+    ],
+    note: 'Orders that are already out for delivery can’t be cancelled.',
+  },
+  {
+    q: 'Ordering again',
+    sub: 'Reorder a past order in one tap',
+    body: 'Add everything from a past order back to your cart in one tap. Items are added at today’s prices, and anything no longer in our range is left out.',
+    stepsTitle: 'TO REORDER',
+    steps: [
+      'Tap Orders in the bottom bar.',
+      'Open Past Orders.',
+      'Tap Reorder on the order you want.',
+      'Check your cart, then place the order.',
+    ],
+  },
+  ],
+  delivery: [
+  {
+    q: 'Delivery times & fees',
+    sub: 'Express vs scheduled',
+    body: 'Express delivery arrives in about {eta_minutes} minutes while the store is open. Scheduled delivery lets you pick a delivery window up to {book_ahead_days} days ahead.',
+    stepsTitle: 'FEES AT A GLANCE',
+    steps: [
+      'Express: {express_fee}, free over {free_over}.',
+      'Scheduled: from {scheduled_fee} — each window shows its own fee.',
+      'Handling fee: {handling_fee} per order.',
+      'Every fee is shown at checkout before you place the order.',
+    ],
+    note: 'Outside store hours Express shows as Closed — choose Schedule instead.',
+  },
+  {
+    q: 'Booking a scheduled slot',
+    sub: 'Choose a delivery window',
+    body: 'Pick a day and a delivery window at checkout. Windows close {slot_cutoff} before they start.',
+    stepsTitle: 'TO BOOK A WINDOW',
+    steps: [
+      'Go to checkout.',
+      'Tap Schedule under delivery time.',
+      'Pick a day, then an available window.',
+      'Tap Place order.',
+    ],
+    note: 'Popular windows fill up — book early for weekends.',
+  },
+  {
+    q: 'I wasn’t home for my delivery',
+    sub: 'What to do next',
+    body: 'Missed your delivery? Contact support straight away and we’ll work out the next steps with the store.',
+    stepsTitle: 'NEXT TIME',
+    steps: [
+      'Keep your mobile number up to date in Personal details.',
+      'Keep your phone nearby around your arrival time.',
+      'Check Track for your estimated arrival.',
+    ],
+    note: 'You can also call the store from the Track screen.',
+  },
+  {
+    q: 'Where do you deliver?',
+    sub: 'Coverage areas',
+    body: '{delivery_area} Add your address in the app and we’ll tell you straight away if it’s outside our delivery area.',
+    stepsTitle: 'TO CHECK YOUR ADDRESS',
+    steps: [
+      'Tap your avatar on Home, then Saved addresses.',
+      'Tap Add new address or Use my current location.',
+      'Enter your postcode — if we don’t deliver there yet, you’ll see a message.',
+    ],
+  },
+  ],
+  payments: [
+  {
+    q: 'Why was my payment declined?',
+    sub: 'Common causes and fixes',
+    body: 'Declines usually come from your bank — for example an expired card, a typo in the card details or not enough funds.',
+    stepsTitle: 'TRY THIS',
+    steps: [
+      'Check the card number, expiry and CVV under Payment methods in your account.',
+      'Try another method at checkout, like Apple Pay or PayID.',
+      'Contact your bank if the same card keeps failing.',
+      'Still stuck? Chat with us from Contact support.',
+    ],
+  },
+  {
+    q: 'Accepted payment methods',
+    sub: 'Cards, Apple Pay, Google Pay and PayID',
+    body: 'At checkout you can pay by credit or debit card, Apple Pay, Google Pay or PayID bank transfer. The options you see depend on what your store currently accepts.',
+    stepsTitle: 'TO MANAGE YOUR CARDS',
+    steps: [
+      'Tap your avatar on Home, then Payment methods.',
+      'Tap + Add payment method to add a card.',
+      'Tap Set default on the card you use most.',
+      'Choose how to pay under Payment method at checkout.',
+    ],
+    note: 'Spice Kart Money can’t be used at checkout yet.',
+  },
+  {
+    q: 'Getting a tax invoice',
+    sub: 'Receipts for your orders',
+    body: 'Need a tax invoice or receipt for an order? Ask us in chat and we’ll send it to your email.',
+    stepsTitle: 'TO GET A COPY',
+    steps: [
+      'Add your email in Personal details.',
+      'Open Contact support and tap Live chat.',
+      'Send the order number you need an invoice for.',
+    ],
+  },
+  ],
+  refunds: [
+  {
+    q: 'How refunds are processed',
+    sub: 'Reviewed by our support team',
+    body: 'If something was missing, damaged or wrong, report it and our support team will review it and arrange your refund. We’ll keep you updated in the chat.',
+    stepsTitle: 'HOW TO REQUEST A REFUND',
+    steps: [
+      'Tap your avatar on Home, then Contact support.',
+      'Tap Report an issue and choose what went wrong.',
+      'Add details, and a photo if an item arrived damaged.',
+      'Tap Continue to chat.',
+    ],
+    note: 'Refunds go back to the payment method you used. Your bank may take 3–5 business days to show it.',
+  },
+  {
+    q: 'How long do refunds take?',
+    sub: 'Checking on a refund',
+    body: 'Once your refund is approved we’ll confirm it in your chat. It’s returned to the payment method you used for the order, and your bank may take 3–5 business days to show it.',
+    stepsTitle: 'TO CHECK ON A REFUND',
+    steps: [
+      'Open Contact support.',
+      'Under Your conversations, open the chat about your refund.',
+      'Still waiting after 5 business days? Send us a message in the same chat.',
+    ],
+  },
+  {
+    q: 'Damaged or expired items',
+    sub: 'Send a photo and we’ll fix it',
+    body: 'If something arrives damaged or past its use-by date, send us a photo and we’ll make it right.',
+    stepsTitle: 'TO REPORT IT',
+    steps: [
+      'Open Contact support and tap Report an issue.',
+      'Choose Damaged item.',
+      'Tap Attach a photo and add a short note.',
+      'Tap Continue to chat.',
+    ],
+    note: 'Please report it as soon as you can after delivery.',
+  },
+  ],
+  wallet: [
+  {
+    q: 'What is Spice Kart Money?',
+    sub: 'Your in-app balance',
+    body: 'Spice Kart Money is your in-app balance. You’ll find it on the Spice Kart Money card in your account.',
+    stepsTitle: 'TO SEE YOUR BALANCE',
+    steps: [
+      'Tap your avatar on Home.',
+      'Your balance is on the Spice Kart Money card.',
+      'Tap Add money to top it up.',
+    ],
+    note: 'Paying for orders with Spice Kart Money is coming soon.',
+  },
+  {
+    q: 'Adding money',
+    sub: 'Top up your balance',
+    body: 'Top up your Spice Kart Money balance from your account in a few taps.',
+    stepsTitle: 'TO ADD MONEY',
+    steps: [
+      'Tap your avatar on Home, then Add money.',
+      'Pick $10, $25, $50 or $100, or enter a custom amount.',
+      'Choose how to pay.',
+      'Tap Confirm & add money.',
+    ],
+  },
+  {
+    q: 'Questions about your balance',
+    sub: 'We’re here to help',
+    body: 'Balance doesn’t look right, or want to move money out? Withdrawals aren’t available in the app yet — chat with us and we’ll help.',
+    stepsTitle: 'TO GET HELP',
+    steps: [
+      'Open Contact support.',
+      'Tap Live chat.',
+      'Tell us what you need help with.',
+    ],
+  },
+  ],
+  addresses: [
+  {
+    q: 'Can I change my address after ordering?',
+    sub: 'Contact us straight away',
+    body: 'Delivery addresses can’t be changed in the app once an order is placed. Contact support straight away and we’ll see what we can do before your order leaves the store.',
+    stepsTitle: 'TO ASK FOR A CHANGE',
+    steps: [
+      'Open Contact support.',
+      'Tap Live chat.',
+      'Send your order number and the new address.',
+    ],
+    note: 'The new address must be inside our delivery area.',
+  },
+  {
+    q: 'Adding a new address',
+    sub: 'Home, work and more',
+    body: 'Save your home, work or other addresses so checkout is quicker.',
+    stepsTitle: 'TO ADD AN ADDRESS',
+    steps: [
+      'Tap your avatar on Home, then Saved addresses.',
+      'Tap Add new address, or Use my current location to fill it in.',
+      'Enter your street, suburb, state and postcode, and choose Home, Work or Other.',
+      'Tap Save address.',
+    ],
+    note: 'To remove an address, press and hold it in Saved addresses.',
+  },
+  {
+    q: 'Setting a default address',
+    sub: 'Faster checkout',
+    body: 'Your default address is used automatically at checkout.',
+    stepsTitle: 'TO SET IT',
+    steps: [
+      'Tap your avatar on Home, then Saved addresses.',
+      'Tap Add new address.',
+      'Turn on Set as default address, then save.',
+    ],
+    note: 'Delivering somewhere else? Tap that address in Saved addresses before you check out.',
+  },
+  ],
+};
+
 export const TOPIC_OF_TAG: Record<string, HelpTopicId> = {
   Orders: 'orders',
   Delivery: 'delivery',

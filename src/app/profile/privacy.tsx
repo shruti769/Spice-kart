@@ -17,6 +17,7 @@ import { CenterDialog } from '@/components/overlays';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { deleteMyAccount, requestMyData, setServerPref } from '@/lib/remote-privacy';
 import { useApp, usePref } from '@/store/app-store';
 
 const ink = C.ink2;
@@ -71,7 +72,6 @@ const DocIcon = () => (
 /** Privacy & data settings (prototype `sPrivacy`). */
 export default function PrivacyScreen() {
   const flash = useApp((s) => s.flash);
-  const userEmail = useApp((s) => s.user.email);
   const toggle = useApp((s) => s.togglePref);
   const push = usePref('push', true);
   const email = usePref('email', true);
@@ -80,16 +80,36 @@ export default function PrivacyScreen() {
   const share = usePref('share', true);
   const sens = usePref('sens', true);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const close = () => setDeleteOpen(false);
+
+  const downloadData = async () => {
+    if (busy) return;
+    setBusy(true);
+    flash(await requestMyData());
+    setBusy(false);
+  };
+
+  const deleteAccount = async () => {
+    if (busy) return;
+    setBusy(true);
+    const error = await deleteMyAccount();
+    setBusy(false);
+    close();
+    if (error) return flash(error);
+    if (router.canDismiss()) router.dismissAll();
+    router.replace('/');
+    flash('Your account has been deleted');
+  };
 
   return (
     <Screen>
       <ScreenHeader variant="tint" title="Privacy & data" subtitle="Control what you share" />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={scrollContent} showsVerticalScrollIndicator={false}>
         <Section label="COMMUNICATIONS">
-          <ToggleRow icon={<BellIcon />} title="Push notifications" sub="Order updates, delivery alerts and arrival times" value={push} onToggle={() => toggle('push', true)} />
-          <ToggleRow icon={<MailIcon />} title="Email updates" sub="Receipts, order summaries and account notices" value={email} onToggle={() => toggle('email', true)} />
-          <ToggleRow icon={<StarIcon />} title="Marketing & offers" sub="Deals, coupons and new-product news" value={marketing} onToggle={() => toggle('marketing', false)} />
+          <ToggleRow icon={<BellIcon />} title="Push notifications" sub="Order updates, delivery alerts and arrival times" value={push} onToggle={() => setServerPref('push', !push)} />
+          <ToggleRow icon={<MailIcon />} title="Email updates" sub="Receipts, order summaries and account notices" value={email} onToggle={() => setServerPref('email', !email)} />
+          <ToggleRow icon={<StarIcon />} title="Marketing & offers" sub="Deals, coupons and new-product news" value={marketing} onToggle={() => setServerPref('marketing', !marketing)} />
         </Section>
 
         <Section label="DATA & PERMISSIONS">
@@ -99,7 +119,7 @@ export default function PrivacyScreen() {
         </Section>
 
         <Section label="YOUR DATA">
-          <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed within 48 hours" onPress={() => (userEmail ? flash('We’ll email a copy to ' + userEmail + ' within 48 hours') : flash('Add an email in Personal details to receive your data'))} />
+          <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed to you" onPress={downloadData} />
           <LinkRow icon={<DocIcon />} title="Privacy policy" sub="How we collect and use your data" onPress={() => router.push('/policy')} />
         </Section>
 
@@ -128,39 +148,27 @@ export default function PrivacyScreen() {
           </View>
         </Tap>
         <Txt style={[f(400, 10, 1.6), { color: C.muted3 }]}>
-          Turning off location will stop live delivery tracking and address autofill. You can change these settings any time.
+          Turning off location stops address autofill and delivery-area checks from your phone’s location. You can change these settings any time.
         </Txt>
       </ScrollView>
 
       <CenterDialog
+        plain
         visible={deleteOpen}
         onClose={close}
         style={{
           width: '100%',
+          maxWidth: 300,
+          alignSelf: 'center',
           backgroundColor: '#fff',
-          borderRadius: 16,
-          padding: 18,
-          gap: 11,
-          boxShadow: '0 20px 44px rgba(0,0,0,0.22)',
+          borderRadius: 14,
+          padding: 16,
+          gap: 8,
+          boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
         }}>
-        <View
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            backgroundColor: '#FDF0EC',
-            borderWidth: 1,
-            borderColor: '#EEDAD5',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <DocIcon />
-        </View>
-        <Txt style={f(700, 15.5, 1.3)}>Delete your account?</Txt>
-        <Txt style={[f(400, 12, 1.6), { color: C.muted }]}>
-          This permanently removes your order history, saved addresses and any remaining Spice Kart Money. It cannot be undone.
-        </Txt>
-        <DialogButtons cancel="Keep account" confirm="Delete" onCancel={close} onConfirm={close} height={44} size={12.5} />
+        <Txt style={f(700, 15, 1.3)}>Delete account?</Txt>
+        <Txt style={[f(400, 12.5, 1.4), { color: C.muted }]}>{busy ? 'Deleting your account…' : 'Do you really want to delete your account?'}</Txt>
+        <DialogButtons cancel="Cancel" confirm="Delete" onCancel={close} onConfirm={deleteAccount} height={40} size={12.5} />
       </CenterDialog>
     </Screen>
   );

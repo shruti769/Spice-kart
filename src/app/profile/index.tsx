@@ -12,7 +12,8 @@ import { Toggle } from '@/components/ui/toggle';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
 import { goTab } from '@/lib/nav';
-import { brandName, useApp, useDefaultCard, usePref, useTotals } from '@/store/app-store';
+import { logOut, setServerPref } from '@/lib/remote-privacy';
+import { brandName, greetingName, useApp, useDefaultCard, usePref, useTotals } from '@/store/app-store';
 
 const I = { stroke: '#3F3F3B', strokeWidth: 1.5 } as const;
 
@@ -143,15 +144,16 @@ export default function ProfileScreen() {
   const orderCount = useApp((s) => (s.order ? 3 : 2));
   const { n: inCart } = useTotals();
   const sens = usePref('sens', true);
+  const push = usePref('push', true);
   const user = useApp((s) => s.user);
   const savedCount = useApp((s) => s.addresses.length);
   const card = useDefaultCard();
 
   const [logoutOpen, setLogoutOpen] = useState(false);
 
-  const restart = () => {
+  const restart = async () => {
     setLogoutOpen(false);
-    useApp.getState().restart();
+    await logOut();
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
   };
@@ -159,7 +161,7 @@ export default function ProfileScreen() {
   return (
     <Screen>
       <Grad preset="header" style={[styles.header, { paddingTop: pad.top(53) }]}>
-        <Txt numberOfLines={1} style={[f(700, 17, 1.2), { color: C.forest }]}>Hi {user.first}</Txt>
+        <Txt numberOfLines={1} style={[f(700, 17, 1.2), { color: C.forest }]}>Hi {greetingName(user)}</Txt>
       </Grad>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: pad.bottom(30) + 90 }]} showsVerticalScrollIndicator={false}>
@@ -180,7 +182,7 @@ export default function ProfileScreen() {
               </View>
               <View style={{ gap: 1, flexShrink: 1 }}>
                 <Txt numberOfLines={1} style={[f(500, 11.5, 1.2), { color: 'rgba(255,255,255,0.7)' }]}>Spice Kart Money</Txt>
-                <Txt numberOfLines={1} style={[f(700, 19, 1.2), { color: '#fff' }]}>{walletStr}.00</Txt>
+                <Txt numberOfLines={1} style={[f(700, 19, 1.2), { color: '#fff' }]}>{walletStr}</Txt>
               </View>
               <Tap onPress={() => router.push('/money/amount')} style={styles.addMoney} pressedStyle={{ backgroundColor: C.limeHover }}>
                 <Txt numberOfLines={1} style={[f(700, 11.5, 1.2), { color: C.forest }]}>Add money</Txt>
@@ -193,7 +195,7 @@ export default function ProfileScreen() {
         </View>
 
         <Section label="YOUR ACCOUNT">
-          <Row icon="person" title="Personal details" value={user.first + " " + (user.last[0] ?? "")} href="/profile/personal" />
+          <Row icon="person" title="Personal details" value={user.first.trim() ? user.first.trim() + ' ' + (user.last.trim()[0] ?? '') : 'Add your name'} href="/profile/personal" />
           <Row icon="pin" title="Saved addresses" value={savedCount + " saved"} href="/addresses" />
           <Row icon="card" title="Payment methods" value={brandName(card) + ' · ' + card.last4} href="/payments" last />
         </Section>
@@ -205,7 +207,7 @@ export default function ProfileScreen() {
             sub="Blur personal-care items in orders"
             right={<Toggle value={sens} onChange={() => useApp.getState().togglePref('sens', true)} label="Hide sensitive items" />}
           />
-          <Row icon="bell" title="Notifications" value="On" href="/profile/privacy" />
+          <Row icon="bell" title="Notifications" right={<Toggle value={push} onChange={() => setServerPref('push', !push)} label="Notifications" />} />
           <Row icon="shield" title="Privacy & data" href="/profile/privacy" last />
         </Section>
 
@@ -224,18 +226,10 @@ export default function ProfileScreen() {
 
       <BottomNav active={null} showCartBar={false} />
 
-      <CenterDialog visible={logoutOpen} onClose={() => setLogoutOpen(false)} style={styles.dialog}>
-        <View style={styles.dialogIcon}>
-          <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">
-            <Path d="M8 4H5.2A1.2 1.2 0 004 5.2v9.6A1.2 1.2 0 005.2 16H8" stroke={C.danger} strokeWidth={1.6} strokeLinecap="round" />
-            <Path d="M12.5 6.5L16 10l-3.5 3.5M16 10H8" stroke={C.danger} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </View>
-        <Txt style={f(700, 15.5, 1.3)}>Log out of Spice Kart?</Txt>
-        <Txt style={[f(400, 12, 1.6), { color: C.muted }]}>
-          Are you sure you want to log out? Your cart will be cleared and you&apos;ll need to sign in again with your mobile number.
-        </Txt>
-        <DialogButtons cancel="Cancel" confirm="Log out" onCancel={() => setLogoutOpen(false)} onConfirm={restart} height={44} size={12.5} />
+      <CenterDialog plain visible={logoutOpen} onClose={() => setLogoutOpen(false)} style={styles.dialog}>
+        <Txt style={f(700, 15, 1.3)}>Log out?</Txt>
+        <Txt style={[f(400, 12.5, 1.4), { color: C.muted }]}>Do you really want to log out?</Txt>
+        <DialogButtons cancel="Cancel" confirm="Log out" onCancel={() => setLogoutOpen(false)} onConfirm={restart} height={40} size={12.5} />
       </CenterDialog>
     </Screen>
   );
@@ -261,7 +255,6 @@ const styles = StyleSheet.create({
   rowIcon: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: '#D9D9D4', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 
   logout: { marginTop: 18, height: 44, borderWidth: 1, borderColor: C.border, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  dialog: { width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 18, gap: 11, boxShadow: '0 20px 44px rgba(0,0,0,0.22)' },
-  dialogIcon: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#FDF0EC', borderWidth: 1, borderColor: '#EEDAD5', alignItems: 'center', justifyContent: 'center' },
+  dialog: { width: '100%', maxWidth: 300, alignSelf: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, gap: 8, boxShadow: '0 12px 30px rgba(0,0,0,0.18)' },
   version: { color: C.muted3, textAlign: 'center', marginTop: 20, marginBottom: 6 },
 });

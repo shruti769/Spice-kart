@@ -94,8 +94,11 @@ async function withRetry(step: string, ms: number, run: () => PromiseLike<{ erro
   if (error) throw error;
 }
 
-/** Upload a picked (local) photo and return its public URL. */
-async function uploadAvatar(uid: string, uri: string) {
+/**
+ * Upload a picked (local) photo into `bucket` under `<uid>/` and return its storage path.
+ * Shared by profile photos and support chat photos.
+ */
+export async function uploadPhoto(bucket: string, uid: string, uri: string) {
   const raw = uri.split('?')[0].split('.').pop()?.toLowerCase() ?? '';
   const ext = MIME[raw] ? (raw === 'jpeg' ? 'jpg' : raw) : 'jpg';
   // A new name per upload, so image caches never show the old photo.
@@ -109,7 +112,7 @@ async function uploadAvatar(uid: string, uri: string) {
   // never finishes a POST with a binary body to Storage on iOS. upsert: a retry after a lost
   // response must not fail with "already exists".
   await withRetry('Uploading the photo', 45_000, async () => {
-    const res = await file.upload(`${supabaseUrl}/storage/v1/object/${BUCKET}/${path}`, {
+    const res = await file.upload(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
       httpMethod: 'POST',
       headers: { Authorization: `Bearer ${token}`, apikey: supabaseKey, 'Content-Type': MIME[ext], 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' },
     });
@@ -120,6 +123,12 @@ async function uploadAvatar(uid: string, uri: string) {
     } catch {}
     return { error: new Error(message) };
   });
+  return path;
+}
+
+/** Upload a picked (local) profile photo and return its public URL. */
+async function uploadAvatar(uid: string, uri: string) {
+  const path = await uploadPhoto(BUCKET, uid, uri);
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 

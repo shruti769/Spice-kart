@@ -1,15 +1,24 @@
 import * as Location from 'expo-location';
 import { Alert, Linking } from 'react-native';
 
+import { useApp } from '@/store/app-store';
+
 // Foreground ("while using the app") location only: a single fix when asked, never tracking.
+// Nothing here runs while Profile → Privacy & data → Location access is off.
+
+/** Profile → Privacy & data → Location access (on by default). */
+export const locationAllowed = () => useApp.getState().prefs.loc ?? true;
 
 export type Coords = { lat: number; lng: number };
 export type DeviceFix = Coords & { accuracy: number | null; at: string };
 
 export type FixResult =
   | { ok: true; fix: DeviceFix }
-  /** denied: the user said no (canAskAgain false = only Settings can change it) · off: location services are disabled. */
-  | { ok: false; reason: 'denied' | 'off' | 'unavailable'; canAskAgain?: boolean };
+  /**
+   * denied: the user said no (canAskAgain false = only Settings can change it) · off: location
+   * services are disabled · disabled: Location access is off in Privacy & data.
+   */
+  | { ok: false; reason: 'denied' | 'off' | 'unavailable' | 'disabled'; canAskAgain?: boolean };
 
 const toFix = (l: Location.LocationObject): DeviceFix => ({
   lat: l.coords.latitude,
@@ -27,6 +36,7 @@ function timeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
  * answered it yet. Falls back to the last known position if a fresh fix takes too long.
  */
 export async function getDeviceFix({ ask, timeoutMs = 10_000 }: { ask: boolean; timeoutMs?: number }): Promise<FixResult> {
+  if (!locationAllowed()) return { ok: false, reason: 'disabled' };
   try {
     let perm = await Location.getForegroundPermissionsAsync();
     if (!perm.granted && ask && perm.canAskAgain) perm = await Location.requestForegroundPermissionsAsync();
@@ -67,6 +77,7 @@ export async function addressAt(c: Coords): Promise<FoundAddress | null> {
 
 /** Map position of a typed address, or null (only when location permission is already granted: Android needs it). */
 export async function coordsOf(address: string): Promise<Coords | null> {
+  if (!locationAllowed()) return null;
   try {
     if (!(await Location.getForegroundPermissionsAsync()).granted) return null;
     const [r] = await timeout(Location.geocodeAsync(address), 8_000) ?? [];
@@ -78,7 +89,12 @@ export async function coordsOf(address: string): Promise<Coords | null> {
 
 /** Explain why there's no location, offering Settings when the system won't ask again. */
 export function explainNoFix(r: Extract<FixResult, { ok: false }>) {
-  if (r.reason === 'denied') {
+  if (r.reason === 'disabled') {
+    Alert.alert('Location access is off', 'You turned it off in Profile → Privacy & data. Turn it on to use your location, or enter your address yourself.', [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Turn on', onPress: () => useApp.getState().set({ prefs: { ...useApp.getState().prefs, loc: true } }) },
+    ]);
+  } else if (r.reason === 'denied') {
     Alert.alert(
       'Location is off for Spice Kart',
       r.canAskAgain === false

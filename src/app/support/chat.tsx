@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { Chip, FooterBar, Glyph, IconTile } from '@/components/help/kit';
@@ -10,43 +11,66 @@ import { C, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
 import { pickPhoto } from '@/lib/pick-photo';
+import { useOrders, type Order } from '@/lib/remote-orders';
+import {
+  guessTopic,
+  markTicketRead,
+  openTicket,
+  rateTicket,
+  sendChatMessage,
+  useChat,
+  useSupportTickets,
+  type ChatMessage,
+  type SupportTopic,
+} from '@/lib/remote-support';
 import { useApp } from '@/store/app-store';
 
-type Msg = { id: string; from: 'agent' | 'me'; text: string; time: string; /** Attached photo URI. */ image?: string };
+type Msg = { id: string; from: 'agent' | 'me'; text: string; time: string; /** Attached photo URI. */ image?: string; pending?: boolean };
 
-const INITIAL: Msg[] = [
-  {
-    id: 'a1',
-    from: 'agent',
-    text: 'Hi {name}! I can see order #SK10482 was delivered at 12:38 PM. What went wrong with it?',
-    time: '12:41 PM',
-  },
-  { id: 'm1', from: 'me', text: 'The sourdough loaf was missing from the bag.', time: '12:42 PM · Read' },
-  {
-    id: 'a2',
-    from: 'agent',
-    text: 'Thanks for flagging that — I’ve refunded $6.50 to your Spice Kart Money. It’s available right now.',
-    time: '12:42 PM',
-  },
-];
+const QUICK_NEW = ['Something is missing', 'Where is my order?', 'Refund status'];
+const QUICK_OPEN = ['Thanks!', 'Something else', 'Refund to card'];
 
-const QUICK = ['Thanks!', 'Something else', 'Refund to card'];
+const STATUS_LABEL: Record<string, string> = {
+  placed: 'Placed',
+  confirmed: 'Confirmed',
+  picking: 'Being picked',
+  packed: 'Packed',
+  out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
 
-/** Canned replies so the demo chat feels live. */
-function replyTo(text: string) {
-  const t = text.toLowerCase();
-  if (t.includes('thank')) return 'You’re welcome! Anything else I can help with today?';
-  if (t.includes('card')) return 'No problem — I’ve moved the $6.50 refund to your card instead. It can take 3–5 business days to appear.';
-  if (t.includes('photo')) return 'Got the photo, thanks. I’ve added it to your report.';
-  if (t.includes('something else')) return 'Sure — tell me what happened and I’ll sort it out.';
-  return 'Thanks for the details. I’m checking this with the store now and will update you in a moment.';
-}
-
-function clock() {
-  const d = new Date();
+function clock(iso: string) {
+  const d = new Date(iso);
   const h = d.getHours();
   return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
+
+/** "Today · 12:41 PM", "Yesterday · 9:10 AM", "24 Sep · 6:00 PM" */
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const day =
+    d >= start ? 'Today' : d.getTime() >= start.getTime() - 864e5 ? 'Yesterday' : d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  return `${day} · ${clock(iso)}`;
+}
+
+/** "Delivered today · 8 items" */
+function orderLine(o: Order) {
+  const items = o.items.reduce((n, i) => n + i.qty, 0);
+  const today = new Date(o.createdAt).toDateString() === new Date().toDateString();
+  return `${STATUS_LABEL[o.status] ?? o.status}${today ? ' today' : ''} · ${items} item${items === 1 ? '' : 's'}`;
+}
+
+const toMsg = (m: ChatMessage): Msg => ({
+  id: m.id,
+  from: m.from,
+  text: m.text,
+  image: m.image,
+  pending: m.pending,
+  time: m.pending ? 'Sending…' : clock(m.at),
+});
 
 function Avatar({ size, radius, font }: { size: number; radius: number; font: number }) {
   return (
@@ -68,7 +92,7 @@ function Avatar({ size, radius, font }: { size: number; radius: number; font: nu
 function Bubble({ m }: { m: Msg }) {
   const me = m.from === 'me';
   const bubble = (
-    <View style={{ gap: 4, maxWidth: 250, alignItems: me ? 'flex-end' : 'stretch', flexShrink: 1 }}>
+    <View style={{ gap: 4, maxWidth: 250, alignItems: me ? 'flex-end' : 'stretch', flexShrink: 1, opacity: m.pending ? 0.6 : 1 }}>
       <View
         style={{
           backgroundColor: me ? C.forest : '#fff',
@@ -81,11 +105,10 @@ function Bubble({ m }: { m: Msg }) {
           paddingVertical: 10,
           paddingHorizontal: 12,
         }}>
-        {m.image ? (
+        {!!m.image && (
           <Image source={{ uri: m.image }} contentFit="cover" accessibilityLabel="Attached photo" style={{ width: 180, height: 180, borderRadius: 8 }} />
-        ) : (
-          <Txt style={[f(400, 12.5, 1.55), { color: me ? '#fff' : C.ink }]}>{m.text}</Txt>
         )}
+        {!!m.text && <Txt style={[f(400, 12.5, 1.55), { color: me ? '#fff' : C.ink, marginTop: m.image ? 8 : 0 }]}>{m.text}</Txt>}
       </View>
       <Txt style={[f(400, 9.5, 1), { color: '#A8A8A2' }]}>{m.time}</Txt>
     </View>
@@ -100,33 +123,114 @@ function Bubble({ m }: { m: Msg }) {
   );
 }
 
-/** Live support chat (`sSupportChat`). */
+function Stars({ onRate }: { onRate: (n: number) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Tap key={n} accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`} onPress={() => onRate(n)} hitSlop={4}>
+          <Txt style={[f(600, 22, 1), { color: '#C89A28' }]}>☆</Txt>
+        </Tap>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Live support chat (`sSupportChat`). `?ticket=<id>` opens that chat; otherwise it continues the
+ * latest open chat, or starts a new one (about `?order=<id>` or the latest recent order).
+ */
 export default function SupportChatScreen() {
   const pad = usePad();
   const flash = useApp((s) => s.flash);
   const first = useApp((s) => s.user.first);
+  const params = useLocalSearchParams<{ ticket?: string; order?: string }>();
   const scroll = useRef<ScrollView>(null);
+  const seq = useRef(0);
   const [text, setText] = useState('');
-  const [sent, setSent] = useState<Msg[]>([]);
+  const [sending, setSending] = useState(false);
 
-  const [typing, setTyping] = useState(false);
-  const msgCount = useRef(0);
+  const { tickets, loaded } = useSupportTickets();
+  const { orders } = useOrders();
+  // A chat opened here (new chat → its ticket) sticks for the rest of the visit.
+  const [openedId, setOpenedId] = useState<string | null>(params.ticket ?? null);
+  const ticketId = openedId ?? (loaded ? tickets.find((t) => t.status !== 'resolved')?.id ?? null : null);
+  const ticket = tickets.find((t) => t.id === ticketId) ?? null;
+  const chat = useChat(ticketId);
+  const { setPending } = chat;
+  const isNew = !ticketId;
 
-  // Demo: Priya answers every message after a short "typing" pause.
-  const send = (value: string, image?: string) => {
-    const t = value.trim();
-    if (!t) return;
-    const n = ++msgCount.current;
-    setSent((s) => [...s, { id: 'u' + n, from: 'me', text: t, time: clock(), image }]);
-    setText('');
-    setTyping(true);
+  // New chats are about the order passed in, else an order from the last 3 days.
+  const [pickedOrder, setPickedOrder] = useState<string | null | undefined>(params.order);
+  const [openedAt] = useState(() => Date.now());
+  const recentOrder = orders.find((o) => openedAt - new Date(o.createdAt).getTime() < 3 * 864e5) ?? null;
+  const newOrderId = pickedOrder === undefined ? recentOrder?.id ?? null : pickedOrder;
+  const about: Order | null = isNew ? orders.find((o) => o.id === newOrderId) ?? null : orders.find((o) => o.id === ticket?.orderId) ?? null;
+  const aboutNo = about?.no ?? (isNew ? null : ticket?.orderNo ?? null);
+
+  const messages = useMemo(() => chat.messages.map(toMsg), [chat.messages]);
+  const agentName = [...chat.messages].reverse().find((m) => m.from === 'agent')?.author;
+  const lastId = messages[messages.length - 1]?.id;
+
+  // Stay at the newest message and clear the unread dot while the chat is open.
+  useEffect(() => {
     requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
-    setTimeout(() => {
-      setTyping(false);
-      setSent((s) => [...s, { id: 'a' + n, from: 'agent', text: replyTo(t), time: clock() }]);
-      requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
-    }, 1400);
+    if (ticketId && ticket?.unread) markTicketRead(ticketId);
+  }, [lastId, ticketId, ticket?.unread]);
+
+  const changeOrder = () => {
+    if (!isNew) return flash('Start a new chat to ask about a different order');
+    Alert.alert('Which order is this about?', undefined, [
+      ...orders.slice(0, 4).map((o) => ({ text: `#${o.no} · ${orderLine(o)}`, onPress: () => setPickedOrder(o.id) })),
+      { text: 'Not about an order', onPress: () => setPickedOrder(null) },
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
   };
+
+  const send = async (value: string, image?: string) => {
+    const t = value.trim();
+    if ((!t && !image) || sending) return;
+    const temp: ChatMessage = { id: `tmp-${++seq.current}`, from: 'me', author: '', text: t, image, at: '', pending: true };
+    setSending(true);
+    setText('');
+    setPending((p) => [...p, temp]);
+    try {
+      if (ticketId) {
+        await sendChatMessage(ticketId, t, image);
+        chat.reload();
+      } else {
+        const topic: SupportTopic = guessTopic(t, !!newOrderId);
+        const id = await openTicket({ subject: t.slice(0, 80) || 'Photo', message: t, topic, orderId: newOrderId, photoUri: image });
+        setOpenedId(id);
+      }
+    } catch (e) {
+      setPending((p) => p.filter((m) => m.id !== temp.id));
+      setText(t);
+      flash(`Couldn’t send · ${(e as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const rate = async (n: number) => {
+    if (!ticketId) return;
+    try {
+      await rateTicket(ticketId, n);
+      flash('Thanks for rating our support');
+    } catch (e) {
+      flash((e as Error).message);
+    }
+  };
+
+  const status = ticket?.status;
+  const subtitle = isNew
+    ? 'Our Melbourne team usually replies in minutes'
+    : status === 'resolved'
+      ? 'Chat resolved · send a message to reopen'
+      : agentName
+        ? `${agentName} · Spice Kart Support`
+        : 'Waiting for the next available agent';
+  const quick = isNew ? QUICK_NEW : status === 'resolved' ? [] : QUICK_OPEN;
+  const lastIsMine = messages[messages.length - 1]?.from === 'me';
 
   return (
     <Screen>
@@ -157,7 +261,7 @@ export default function SupportChatScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <View style={{ width: 6, height: 6, borderRadius: 4, backgroundColor: C.lime }} />
             <Txt numberOfLines={1} style={[f(400, 10.5, 1), { color: C.greenMuted }]}>
-              Priya connected · replies in ~1 min
+              {subtitle}
             </Txt>
           </View>
         </View>
@@ -171,22 +275,24 @@ export default function SupportChatScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}>
-          <Txt
-            numberOfLines={1}
-            style={[
-              f(500, 9.5, 1),
-              {
-                alignSelf: 'center',
-                color: '#8C8C86',
-                backgroundColor: '#EDEEE9',
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderRadius: 20,
-                overflow: 'hidden',
-              },
-            ]}>
-            Today · 12:41 PM
-          </Txt>
+          {!!(messages[0] || isNew) && (
+            <Txt
+              numberOfLines={1}
+              style={[
+                f(500, 9.5, 1),
+                {
+                  alignSelf: 'center',
+                  color: '#8C8C86',
+                  backgroundColor: '#EDEEE9',
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                },
+              ]}>
+              {isNew ? 'New chat' : [ticket?.number, chat.messages[0]?.at && dayLabel(chat.messages[0].at)].filter(Boolean).join(' · ')}
+            </Txt>
+          )}
 
           <View
             style={{
@@ -200,62 +306,67 @@ export default function SupportChatScreen() {
               borderWidth: 1,
               borderColor: '#EAEAE6',
             }}>
-            <IconTile name="box" />
+            <IconTile name={aboutNo ? 'box' : 'chat'} />
             <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
               <Txt numberOfLines={1} style={f(600, 11.5, 1.2)}>
-                About order #SK10482
+                {aboutNo ? `About order #${aboutNo}` : isNew ? 'General question' : ticket?.subject ?? 'Your chat'}
               </Txt>
               <Txt numberOfLines={1} style={[f(400, 10, 1.2), { color: '#8C8C86' }]}>
-                Delivered today · 8 items
+                {about ? orderLine(about) : isNew ? 'Not about a specific order' : 'Spice Kart Support'}
               </Txt>
             </View>
-            <Tap onPress={() => flash('This chat is about your most recent order')} hitSlop={8}>
-              <Txt numberOfLines={1} style={[f(600, 11, 1), { color: C.green }]}>
-                Change
-              </Txt>
-            </Tap>
+            {isNew && orders.length > 0 && (
+              <Tap onPress={changeOrder} hitSlop={8}>
+                <Txt numberOfLines={1} style={[f(600, 11, 1), { color: C.green }]}>
+                  Change
+                </Txt>
+              </Tap>
+            )}
           </View>
 
-          {INITIAL.map((m) => (
-            <Bubble key={m.id} m={{ ...m, text: m.text.replace('{name}', first) }} />
-          ))}
-
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 9,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 12,
-              backgroundColor: '#F7FAF2',
-              borderWidth: 1,
-              borderColor: '#E4EBD8',
-            }}>
-            <Glyph name="check" color={C.green} />
-            <Txt style={[f(500, 11, 1.4), { color: '#3F5B43', flexShrink: 1 }]}>
-              Issue resolved · $6.50 refunded to Spice Kart Money
-            </Txt>
-          </View>
-
-          {sent.length === 0 && (
-            <Animated.View
-              exiting={FadeOut.duration(150)}
-              style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-              {QUICK.map((q) => (
-                <Chip key={q} label={q} onPress={() => send(q)} />
-              ))}
-            </Animated.View>
+          {isNew && (
+            <Bubble m={{ id: 'hello', from: 'agent', text: `Hi ${first || 'there'}! How can we help today? Tell us what happened and a member of our team will reply here.`, time: '' }} />
           )}
+          {chat.loading && !messages.length && <ActivityIndicator color={C.green} style={{ marginTop: 20 }} />}
 
-          {sent.map((m) => (
+          {messages.map((m) => (
             <Animated.View key={m.id} entering={FadeInDown.duration(200)} layout={LinearTransition}>
               <Bubble m={m} />
             </Animated.View>
           ))}
-          {typing && (
-            <Animated.View entering={FadeInDown.duration(200)} exiting={FadeOut.duration(120)}>
-              <Txt style={[f(400, 11, 1.3), { color: C.muted2, marginLeft: 35 }]}>Priya is typing…</Txt>
+
+          {!isNew && status !== 'resolved' && lastIsMine && !sending && (
+            <Txt style={[f(400, 11, 1.3), { color: C.muted2, marginLeft: 35 }]}>
+              {agentName ? `${agentName.split(' ')[0]} will reply here soon` : 'Sent · our team will reply here soon'}
+            </Txt>
+          )}
+
+          {status === 'resolved' && (
+            <View
+              style={{
+                gap: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: '#F7FAF2',
+                borderWidth: 1,
+                borderColor: '#E4EBD8',
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <Glyph name="check" color={C.green} />
+                <Txt style={[f(500, 11, 1.4), { color: '#3F5B43', flexShrink: 1 }]}>
+                  {ticket?.csat ? `Issue resolved · you rated us ${ticket.csat}/5` : 'Issue resolved · how did we do?'}
+                </Txt>
+              </View>
+              {!ticket?.csat && <Stars onRate={rate} />}
+            </View>
+          )}
+
+          {quick.length > 0 && !sending && (isNew || !lastIsMine) && (
+            <Animated.View exiting={FadeOut.duration(150)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+              {quick.map((q) => (
+                <Chip key={q} label={q} onPress={() => send(q)} />
+              ))}
             </Animated.View>
           )}
         </ScrollView>
@@ -265,7 +376,7 @@ export default function SupportChatScreen() {
             accessibilityLabel="Attach photo"
             onPress={async () => {
               const uri = await pickPhoto({ title: 'Send a photo' });
-              if (uri) send('photo', uri);
+              if (uri) send(text, uri);
             }}
             style={{
               width: 40,
@@ -308,6 +419,7 @@ export default function SupportChatScreen() {
           />
           <Tap
             accessibilityLabel="Send"
+            disabled={sending}
             onPress={() => (text.trim() ? send(text) : flash('Type a message first'))}
             pressedStyle={{ backgroundColor: C.limeHover }}
             style={{

@@ -82,7 +82,7 @@ export function BottomSheet({ visible, onClose, children, dim = 0.35, style }: O
 }
 
 /** Centered dialog card on a dimmed backdrop. */
-export function CenterDialog({ visible, onClose, children, dim = 0.4, style }: OverlayProps) {
+export function CenterDialog({ visible, onClose, children, dim = 0.4, style, plain }: OverlayProps & { /** Fade in without the zoom. */ plain?: boolean }) {
   const shown = useDelayedVisible(visible);
   if (!shown) return null;
   return (
@@ -94,7 +94,10 @@ export function CenterDialog({ visible, onClose, children, dim = 0.4, style }: O
       )}
       <View style={{ flex: 1, justifyContent: 'center', padding: 24 }} pointerEvents="box-none">
         {visible && (
-          <Animated.View entering={ZoomIn.duration(200).springify().damping(18)} exiting={ZoomOut.duration(160)} style={style}>
+          <Animated.View
+            entering={plain ? FadeIn.duration(150) : ZoomIn.duration(200).springify().damping(18)}
+            exiting={plain ? FadeOut.duration(120) : ZoomOut.duration(160)}
+            style={style}>
             {children}
           </Animated.View>
         )}

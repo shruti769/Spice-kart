@@ -1,23 +1,36 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 
 import { Caption, FooterBar, Glyph, Row, Section, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { pickPhoto } from '@/lib/pick-photo';
+import { useOrders } from '@/lib/remote-orders';
+import { openTicket, type SupportTopic } from '@/lib/remote-support';
 import { useApp } from '@/store/app-store';
 
-const ISSUES: [string, string, GlyphName][] = [
-  ['Missing item', 'Something did not arrive in the bag', 'box'],
-  ['Damaged item', 'Arrived crushed, leaking or spoiled', 'flag'],
-  ['Delivery issue', 'Late, wrong address or no-show', 'truck'],
-  ['Payment issue', 'Wrong amount or double charge', 'card'],
-  ['Refund issue', 'Refund missing or incorrect', 'refund'],
-  ['Account issue', 'Login, details or notifications', 'user'],
+/** [title, sub, icon, support topic] */
+const ISSUES: [string, string, GlyphName, SupportTopic][] = [
+  ['Missing item', 'Something did not arrive in the bag', 'box', 'orders'],
+  ['Damaged item', 'Arrived crushed, leaking or spoiled', 'flag', 'orders'],
+  ['Delivery issue', 'Late, wrong address or no-show', 'truck', 'delivery'],
+  ['Payment issue', 'Wrong amount or double charge', 'card', 'payments'],
+  ['Refund issue', 'Refund missing or incorrect', 'refund', 'refunds'],
+  ['Account issue', 'Login, details or notifications', 'user', 'account'],
 ];
+
+const ORDER_STATUS: Record<string, string> = {
+  placed: 'placed',
+  confirmed: 'confirmed',
+  picking: 'being picked',
+  packed: 'packed',
+  out_for_delivery: 'out for delivery',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+};
 
 /** Selected: lime rounded square. Unselected: grey ring (as in the design). */
 function Radio({ on }: { on: boolean }) {
@@ -33,8 +46,34 @@ export default function SupportIssueScreen() {
   const issueIdx = useApp((s) => s.issueIdx);
   const set = useApp((s) => s.set);
   const flash = useApp((s) => s.flash);
+  const { order: orderParam } = useLocalSearchParams<{ order?: string }>();
+  const { orders } = useOrders();
+  const order = (orderParam ? orders.find((o) => o.id === orderParam) : orders[0]) ?? null;
   const [detail, setDetail] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const account = (issueIdx || 0) === 5;
+
+  // Opens a support chat with the report as its first message, then shows it.
+  const submit = async () => {
+    if (sending) return;
+    const [title, sub, , topic] = ISSUES[issueIdx || 0];
+    const about = account ? null : order;
+    setSending(true);
+    try {
+      const id = await openTicket({
+        subject: about ? `${title} · #${about.no}` : title,
+        message: detail.trim() || `${title}: ${sub.toLowerCase()}.`,
+        topic,
+        orderId: about?.id ?? null,
+        photoUri: photo,
+      });
+      router.replace({ pathname: '/support/chat', params: { ticket: id } });
+    } catch (e) {
+      setSending(false);
+      flash(`Couldn’t send your report · ${(e as Error).message}`);
+    }
+  };
   const attach = async () => {
     if (photo) {
       setPhoto(null);
@@ -47,7 +86,15 @@ export default function SupportIssueScreen() {
 
   return (
     <Screen>
-      <ScreenHeader variant="tint" title="Report an issue" subtitle="Order #SK10482 · delivered today" />
+      <ScreenHeader
+        variant="tint"
+        title="Report an issue"
+        subtitle={
+          order
+            ? `Order #${order.no} · ${ORDER_STATUS[order.status] ?? order.status}${new Date(order.createdAt).toDateString() === new Date().toDateString() ? ' today' : ''}`
+            : 'Tell us what went wrong'
+        }
+      />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           style={{ flex: 1 }}
@@ -128,7 +175,8 @@ export default function SupportIssueScreen() {
 
         <FooterBar>
           <Tap
-            onPress={() => router.push('/support/chat')}
+            onPress={submit}
+            disabled={sending}
             pressedStyle={{ backgroundColor: C.limeHover }}
             style={{
               height: 48,
@@ -138,7 +186,7 @@ export default function SupportIssueScreen() {
               justifyContent: 'center',
               boxShadow: '0 6px 14px rgba(107,176,0,0.24)',
             }}>
-            <Txt style={[f(700, 14, 1.2), { color: C.forest }]}>Continue to chat</Txt>
+            {sending ? <ActivityIndicator color={C.forest} /> : <Txt style={[f(700, 14, 1.2), { color: C.forest }]}>Continue to chat</Txt>}
           </Tap>
         </FooterBar>
       </KeyboardAvoidingView>

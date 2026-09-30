@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
@@ -9,26 +9,37 @@ import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import type { HelpTopicId } from '@/data/help-topics';
 import { goBack } from '@/lib/nav';
+import { useHelpTopics } from '@/lib/remote-help';
 
 /** `to`: the help topic and question (index) that answers it. */
-type Result = { title: string; sub?: string; tag: string; icon: GlyphName; to: [HelpTopicId, number] };
+type Result = { key: string; title: string; sub?: string; tag: string; icon: GlyphName; to: [HelpTopicId, number] };
 
-const RESULTS: Result[] = [
-  { title: 'How refunds are processed', sub: 'Money returns to Spice Kart Money instantly', tag: 'Refunds', icon: 'refund', to: ['refunds', 0] },
-  { title: 'Refund for a missing item', sub: 'Report within 24 hours of delivery', tag: 'Orders', icon: 'box', to: ['orders', 1] },
-  { title: 'Refund to card instead of wallet', sub: 'Takes 3–5 business days', tag: 'Payments', icon: 'card', to: ['refunds', 0] },
-  { title: 'Wallet refund timelines', tag: 'Wallet', icon: 'coin', to: ['refunds', 1] },
-  { title: 'Cancelled order refunds', tag: 'Delivery', icon: 'truck', to: ['orders', 2] },
-];
+const ICON: Record<HelpTopicId, GlyphName> = { orders: 'box', delivery: 'truck', payments: 'card', refunds: 'refund', wallet: 'coin', addresses: 'pin' };
 
-const FILTERS = ['All', 'Refunds', 'Payments', 'Wallet'];
-
-/** Help search results (`sHelpSearch`). */
+/** Help search results (`sHelpSearch`): every live question whose text matches all the words typed. */
 export default function HelpSearchScreen() {
   const pad = usePad();
-  const [q, setQ] = useState('refund');
+  const topics = useHelpTopics();
+  const [q, setQ] = useState('');
   const [filter, setFilter] = useState('All');
-  const shown = filter === 'All' ? RESULTS : RESULTS.filter((r) => r.tag === filter);
+  const term = q.trim();
+
+  const results = useMemo<Result[]>(() => {
+    const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    return topics.flatMap((t) =>
+      t.questions.flatMap((item, i) => {
+        const text = [item.q, item.sub, item.body, item.stepsTitle, ...(item.steps ?? []), item.note].join(' ').toLowerCase();
+        return words.every((w) => text.includes(w))
+          ? [{ key: item.id ?? `${t.id}-${i}`, title: item.q, sub: item.sub, tag: t.title, icon: ICON[t.id], to: [t.id, i] as [HelpTopicId, number] }]
+          : [];
+      }),
+    );
+  }, [topics, term]);
+
+  const filters = ['All', ...new Set(results.map((r) => r.tag))];
+  const active = filters.includes(filter) ? filter : 'All';
+  const shown = active === 'All' ? results : results.filter((r) => r.tag === active);
 
   return (
     <Screen>
@@ -74,6 +85,7 @@ export default function HelpSearchScreen() {
             allowFontScaling={false}
             returnKeyType="search"
             autoCorrect={false}
+            autoFocus
             selectionColor={C.green}
             style={[f(600, 13, 1.2), { flex: 1, color: C.ink, padding: 0, height: 38 }]}
           />
@@ -104,17 +116,21 @@ export default function HelpSearchScreen() {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
         <Txt numberOfLines={1} style={[f(400, 11.5, 1), { color: '#7A7A75' }]}>
-          7 results for “refund”
+          {term
+            ? `${results.length} result${results.length === 1 ? '' : 's'} for “${term}”`
+            : `Search ${topics.reduce((n, t) => n + t.questions.length, 0)} answers about orders, delivery, payments and more`}
         </Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-          {FILTERS.map((l) => (
-            <Chip key={l} label={l} active={filter === l} onPress={() => setFilter(l)} />
-          ))}
-        </View>
+        {results.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+            {filters.map((l) => (
+              <Chip key={l} label={l} active={active === l} onPress={() => setFilter(l)} />
+            ))}
+          </View>
+        )}
         <Animated.View layout={LinearTransition.duration(200)}>
-          <Card>
+          {shown.length > 0 && <Card>
             {shown.map((r) => (
-              <Animated.View key={r.title} entering={FadeIn.duration(180)} layout={LinearTransition.duration(200)}>
+              <Animated.View key={r.key} entering={FadeIn.duration(180)} layout={LinearTransition.duration(200)}>
                 <Row
                   icon={r.icon}
                   title={r.title}
@@ -129,7 +145,7 @@ export default function HelpSearchScreen() {
                 />
               </Animated.View>
             ))}
-          </Card>
+          </Card>}
         </Animated.View>
         <Animated.View
           layout={LinearTransition.duration(200)}
@@ -148,7 +164,7 @@ export default function HelpSearchScreen() {
               Not what you were after?
             </Txt>
             <Txt numberOfLines={1} style={[f(400, 10.5, 1.3), { color: '#5F6B57' }]}>
-              Chat with support about this order
+              Chat with our support team
             </Txt>
           </View>
           <Tap

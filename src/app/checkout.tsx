@@ -15,6 +15,7 @@ import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useDelivery
 import { getDeviceFix, type DeviceFix } from '@/lib/location';
 import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
 import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
+import { refreshWallet } from '@/lib/remote-wallet';
 import { brandName, useAddress, useApp, useDefaultCard, useTotals, type PaymentKey } from '@/store/app-store';
 
 const LIME = C.lime;
@@ -26,7 +27,11 @@ const PAY_DEFS: [PaymentKey, string, string][] = [
   ['Apple Pay', 'Apple Pay', 'Fastest checkout'],
   ['Google Pay', 'Google Pay', 'Linked to your account'],
   ['PayID', 'PayID bank transfer', 'Pay from your bank app'],
+  ['Spice Kart Money', 'Spice Kart Money', ''],
 ];
+
+/** The admin switches card / wallets / PayID on and off; Spice Kart Money is always offered. */
+const offered = (key: PaymentKey, methods: PaymentKey[]) => key === 'Spice Kart Money' || methods.includes(key);
 
 const sel = (on: boolean) => ({ borderColor: on ? LIME : OFF_BORDER, backgroundColor: on ? C.selectedBg : '#fff' });
 
@@ -82,6 +87,9 @@ function orderFailed(e: OrderError) {
       // Express only runs in store hours; a scheduled window still works.
       s.set({ slot: null, scheduling: true });
       return s.flash('We’re closed for express delivery right now · schedule a delivery instead');
+    case 'insufficient_balance':
+      refreshWallet();
+      return s.flash('Not enough Spice Kart Money · add money or choose another payment method');
     case 'account_suspended':
       return s.flash('Your account can’t place orders right now · please contact support');
     case 'no_store':
@@ -105,6 +113,7 @@ export default function CheckoutScreen() {
   const payment = useApp((s) => s.payment);
   const card = useDefaultCard();
   const set = useApp((s) => s.set);
+  const balance = useApp((s) => s.wallet) ?? 0;
 
   const addr = useAddress();
   const express = slot === 'ASAP' && !scheduling;
@@ -114,7 +123,7 @@ export default function CheckoutScreen() {
   const [placing, setPlacing] = useState(false);
   // Admin → Settings: opening hours, minimum order, payment methods switched on.
   const config = useStoreConfig();
-  const payDefs = PAY_DEFS.filter(([key]) => config.paymentMethods.includes(key));
+  const payDefs = PAY_DEFS.filter(([key]) => offered(key, config.paymentMethods));
   const short = config.minOrder > 0 && t.sub < config.minOrder ? config.minOrder - t.sub : 0;
   const closedNote = 'Closed' + (config.opens ? ' · ' + config.opens : '');
 
@@ -125,7 +134,7 @@ export default function CheckoutScreen() {
   // A payment method the admin switched off falls back to the first one still on.
   useEffect(() => {
     const p = useApp.getState().payment;
-    if (config.paymentMethods.length && !config.paymentMethods.includes(p)) useApp.getState().set({ payment: config.paymentMethods[0] });
+    if (config.paymentMethods.length && !offered(p, config.paymentMethods)) useApp.getState().set({ payment: config.paymentMethods[0] });
   }, [config.paymentMethods]);
 
   // Where the phone is, recorded with the order (asks for permission once; the order never waits on it).
@@ -143,8 +152,12 @@ export default function CheckoutScreen() {
       s.flash(`Add ${money(short)} more to reach the ${money(config.minOrder)} minimum order`);
       return;
     }
-    if (!config.paymentMethods.includes(s.payment)) {
+    if (!offered(s.payment, config.paymentMethods)) {
       s.flash(`${s.payment} isn’t available right now · choose another payment method`);
+      return;
+    }
+    if (s.payment === 'Spice Kart Money' && (s.wallet ?? 0) < t.total) {
+      s.flash(`Not enough Spice Kart Money (${money(s.wallet ?? 0)}) · add money or choose another payment method`);
       return;
     }
     if (s.slot === 'ASAP' && !config.open) {
@@ -183,6 +196,7 @@ export default function CheckoutScreen() {
         device: device.current,
       });
       s.placeOrder(placed);
+      if (s.payment === 'Spice Kart Money') refreshWallet();
       resetTo('/order-confirmed');
     } catch (e) {
       orderFailed(e instanceof OrderError ? e : new OrderError('network'));
@@ -306,7 +320,12 @@ export default function CheckoutScreen() {
         <Animated.View layout={layout} style={[styles.card, { gap: 10 }]}>
           <Txt style={f(700, 14, 1.25)}>Payment method</Txt>
           {payDefs.map(([key, label, fixedSub]) => {
-            const sub = key === 'Card' ? brandName(card) + ' ending ' + card.last4 : fixedSub;
+            const sub =
+              key === 'Card'
+                ? brandName(card) + ' ending ' + card.last4
+                : key === 'Spice Kart Money'
+                  ? 'Balance ' + money(balance) + (balance < t.total ? ' · not enough' : '')
+                  : fixedSub;
             const on = payment === key;
             return (
               <Tap key={key} onPress={() => set({ payment: key })} style={[styles.payOption, sel(on)]}>

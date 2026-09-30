@@ -34,6 +34,8 @@ export type Product = {
   out: boolean;
   desc: string;
   facts: { k: string; v: string }[];
+  /** Personal-care item, blurred in orders when "Hide sensitive items" is on. */
+  sensitive?: boolean;
 };
 
 const IMG: Record<string, string> = {
@@ -180,6 +182,8 @@ export type RemoteProductRow = {
   image_url: string | null;
   stock_qty: number | null;
   track_inventory: boolean | null;
+  /** Missing until the privacy migration has run. */
+  sensitive?: boolean | null;
 };
 
 /** Convert a Supabase row into the app's Product shape so every screen can show it unchanged. */
@@ -206,6 +210,7 @@ export function productFromRow(r: RemoteProductRow): Product | null {
     rating: '4.5',
     out: !!r.track_inventory && (r.stock_qty ?? 0) <= 0,
     desc: r.description ?? '',
+    sensitive: !!r.sensitive,
     facts: [
       ...(weight ? [{ k: 'Size', v: weight }] : []),
       ...(brand ? [{ k: 'Brand', v: brand }] : []),
@@ -278,7 +283,6 @@ export const ADDRESSES: Address[] = [
 ];
 
 // Delivery fees, the express ETA and the free-delivery threshold come from Supabase: see `@/lib/remote-delivery`.
-export const WALLET_BALANCE = 24;
 
 export const LOCAL = {
   appIcon: require('@/assets/images/brand/app-icon.png'),

@@ -181,8 +181,8 @@ export default function CartScreen() {
             <View style={styles.policy}>
               <Txt style={[f(600, 13, 1.25), { color: C.ink2 }]}>Cancellation policy</Txt>
               <Txt style={[f(400, 12.5, 1.55), { color: C.muted }]}>
-                Orders can be cancelled free of charge until your shopper starts picking. After that a small restocking fee applies for fresh items. Refunds reach
-                your original payment method within 3–5 business days.
+                Need to cancel? Contact support before your shopper starts picking and we’ll cancel it free of charge. After that a small restocking fee
+                applies for fresh items. Refunds reach your original payment method within 3–5 business days.
               </Txt>
             </View>
           </View>

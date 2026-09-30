@@ -68,10 +68,13 @@ export function Photo({
   source,
   style,
   crop = true,
+  blur = false,
 }: {
   source: string | ImageSource | number;
   style?: StyleProp<ViewStyle>;
   crop?: boolean;
+  /** Hide what the photo shows (sensitive items). */
+  blur?: boolean;
 }) {
   const src = typeof source === 'string' ? { uri: source } : source;
   return (
@@ -81,6 +84,7 @@ export function Photo({
         contentFit="cover"
         transition={180}
         cachePolicy="memory-disk"
+        blurRadius={blur ? 18 : 0}
         style={
           crop
             ? { position: 'absolute', left: '-5%', top: '-5%', width: '110%', height: '110%' }

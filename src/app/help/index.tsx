@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { Card, Caption, Glyph, SearchButton, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
@@ -8,6 +10,7 @@ import { Grad, Grid, Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
 import { TOPIC_OF_TAG, type HelpTopicId } from '@/data/help-topics';
+import { trackHelpView, useHelpStore, useHelpTopics } from '@/lib/remote-help';
 
 const TOPICS: [string, GlyphName][] = [
   ['Orders', 'box'],
@@ -18,24 +21,59 @@ const TOPICS: [string, GlyphName][] = [
   ['Addresses', 'pin'],
 ];
 
-/** Each FAQ opens its topic with that question expanded (`q` = its index in the topic). */
-const FAQS: { q: string; a?: string; topic: HelpTopicId; index: number }[] = [
+type Faq = { q: string; a?: string; id?: string; topic: HelpTopicId; index: number };
+
+const layout = LinearTransition.duration(200);
+
+/** Built-in list until the live articles load; answers come from the matching topic question. */
+const FAQS: Faq[] = [
   {
     q: 'Where is my order?',
-    a: 'Open Orders and tap Track to follow your shopper on the map, with a live arrival time. Tracking begins once picking starts.',
+    a: 'Tap Orders in the bottom bar, then Track on your order to see each step and your estimated arrival.',
     topic: 'orders',
     index: 0,
   },
   { q: 'An item is missing from my delivery', topic: 'orders', index: 1 },
-  { q: 'How do refunds to Spice Kart Money work?', topic: 'refunds', index: 1 },
+  { q: 'How long do refunds take?', topic: 'refunds', index: 1 },
   { q: 'Can I change my address after ordering?', topic: 'addresses', index: 0 },
   { q: 'Why was my payment declined?', topic: 'payments', index: 0 },
 ];
 
 const openTopic = (topic: HelpTopicId, q = 0) => router.push({ pathname: '/help/[topic]', params: { topic, q: String(q) } });
 
+/** The five most-read live questions, each with its answer for the inline accordion. */
+function useFaqs(): Faq[] {
+  const topics = useHelpTopics();
+  const articles = useHelpStore((s) => s.articles);
+  const loaded = useHelpStore((s) => s.loaded);
+  return useMemo(() => {
+    if (!loaded || !articles.length) {
+      return FAQS.map((x) => ({ ...x, a: x.a ?? topics.find((t) => t.id === x.topic)?.questions[x.index]?.body }));
+    }
+    const top = [...articles].sort((a, b) => b.views - a.views).slice(0, 5);
+    return top.flatMap((a) => {
+      const topic = topics.find((t) => t.id === a.topic);
+      const index = topic?.questions.findIndex((x) => x.id === a.id) ?? -1;
+      if (!topic || index < 0) return [];
+      const item = topic.questions[index];
+      return [{ q: item.q, a: item.body, id: item.id, topic: topic.id, index }];
+    });
+  }, [topics, articles, loaded]);
+}
+
 /** Help centre (`sHelp`). */
 export default function HelpScreen() {
+  const faqs = useFaqs();
+  // All questions start closed; tapping a question toggles it in place.
+  const [open, setOpen] = useState<number | null>(null);
+  // Count each live question once per visit when it's opened.
+  const openId = open == null ? undefined : faqs[open]?.id;
+  const [seen] = useState(() => new Set<string>());
+  useEffect(() => {
+    if (!openId || seen.has(openId)) return;
+    seen.add(openId);
+    trackHelpView(openId);
+  }, [openId, seen]);
   return (
     <Screen>
       <ScreenHeader variant="tint" title="Help centre" subtitle="Answers, guides and live support" />
@@ -92,23 +130,37 @@ export default function HelpScreen() {
         <View style={{ gap: 8 }}>
           <Caption>FREQUENT QUESTIONS</Caption>
           <Card>
-            {FAQS.map(({ q, a, topic, index }) => (
-              <View
-                key={q}
-                style={{
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#F0F0EC',
-                  paddingVertical: 11,
-                  paddingHorizontal: 12,
-                  gap: a ? 7 : 0,
-                }}>
-                <Tap onPress={() => openTopic(topic, index)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Txt style={[f(a ? 600 : 500, 12.5, 1.35), { flex: 1, color: C.ink }]}>{q}</Txt>
-                  <Txt style={[f(600, 14, 1), { color: '#8C8C86', flexShrink: 0 }]}>{a ? '−' : '+'}</Txt>
-                </Tap>
-                {!!a && <Txt style={[f(400, 11.5, 1.6), { color: '#7A7A75' }]}>{a}</Txt>}
-              </View>
-            ))}
+            <Animated.View layout={layout}>
+              {faqs.map(({ q, a, topic, index }, i) => {
+                const isOpen = open === i;
+                return (
+                  <Animated.View
+                    key={q}
+                    layout={layout}
+                    style={{
+                      borderBottomWidth: i < faqs.length - 1 ? 1 : 0,
+                      borderBottomColor: '#F0F0EC',
+                      paddingVertical: 11,
+                      paddingHorizontal: 12,
+                      gap: isOpen ? 7 : 0,
+                    }}>
+                    <Tap
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isOpen }}
+                      onPress={() => (a ? setOpen(isOpen ? null : i) : openTopic(topic, index))}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Txt style={[f(isOpen ? 600 : 500, 12.5, 1.35), { flex: 1, color: C.ink }]}>{q}</Txt>
+                      <Txt style={[f(600, 14, 1), { color: '#8C8C86', flexShrink: 0 }]}>{isOpen ? '−' : '+'}</Txt>
+                    </Tap>
+                    {isOpen && !!a && (
+                      <Animated.View entering={FadeIn.duration(180)}>
+                        <Txt style={[f(400, 11.5, 1.6), { color: '#7A7A75' }]}>{a}</Txt>
+                      </Animated.View>
+                    )}
+                  </Animated.View>
+                );
+              })}
+            </Animated.View>
           </Card>
         </View>
 

@@ -4,7 +4,6 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { WALLET_BALANCE } from '@/data/catalog';
 import { useApp } from '@/store/app-store';
 
 /** Wallet/amount derived values, mirroring the prototype's `renderVals()`. */
@@ -13,7 +12,7 @@ export function useWalletVals() {
   const wallet = useApp((s) => s.wallet);
   const n = parseFloat(amountText || '0');
   const amt = isNaN(n) ? 0 : n;
-  const bal = wallet ?? WALLET_BALANCE;
+  const bal = wallet ?? 0;
   const amtErr = amt < 5 || amt > 500;
   return {
     amt,
@@ -24,7 +23,7 @@ export function useWalletVals() {
     amountStr: '$' + amt.toFixed(2).replace('.00', ''),
     amountHint: amtErr ? 'Enter between $5 and $500' : 'Minimum $5 · maximum $500 per top-up',
     amountHintColor: amtErr ? C.danger : C.muted2,
-    walletStr: '$' + bal.toFixed(0),
+    walletStr: '$' + bal.toFixed(2),
     newBalance: '$' + (bal + amt).toFixed(2),
   };
 }

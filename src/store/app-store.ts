@@ -16,7 +16,7 @@ import {
 
 export type SortOption = 'Recommended' | 'Price: Low to High' | 'Price: High to Low' | 'Popular' | 'New';
 export type PriceFilter = 'u5' | '5to10' | 'o10' | null;
-export type PaymentKey = 'Card' | 'Apple Pay' | 'Google Pay' | 'PayID';
+export type PaymentKey = 'Card' | 'Apple Pay' | 'Google Pay' | 'PayID' | 'Spice Kart Money';
 export type User = { first: string; last: string; email: string; /** 9 digits after +61. */ mobile: string; dob: string; /** Profile photo URL (Supabase Storage). */ avatar?: string };
 export type SavedCard = { brand: 'VISA' | 'MASTERCARD' | 'AMEX'; last4: string; /** MM/YY */ exp: string };
 /** The last order placed on this device (`id` = Supabase `orders.id`, for tracking). */
@@ -68,6 +68,7 @@ type State = {
   ordersTab: 'Active' | 'Past Orders';
 
   // wallet
+  /** Spice Kart Money balance from Supabase (see remote-wallet), cached for launch; null = not loaded yet. */
   wallet: number | null;
   amountText: string;
   payIdx: number;
@@ -114,7 +115,8 @@ const initial: State = {
     { brand: 'MASTERCARD', last4: '8802', exp: '03/27' },
   ],
   defaultCard: 0,
-  user: { first: 'Jaiveer', last: 'Singh', email: '', mobile: '412908344', dob: '14 / 03 / 1994' },
+  // Empty until the user fills in their details (sign-up can be skipped).
+  user: { first: '', last: '', email: '', mobile: '', dob: '' },
   order: null,
   sort: 'Recommended',
   dealsOnly: false,
@@ -207,13 +209,17 @@ export const useApp = create<State & Actions>()(
   },
 
   addViewed: (id) => {
+    // Personalised recommendations off: don't remember what the user looks at.
+    if (!(get().prefs.share ?? true)) return;
     const next = [id, ...get().viewedIds.filter((x) => x !== id)].slice(0, 12);
     set({ viewedIds: next });
   },
 
   togglePref: (k, def) => {
     const prefs = get().prefs;
-    set({ prefs: { ...prefs, [k]: !(prefs[k] ?? def) } });
+    const on = !(prefs[k] ?? def);
+    // Turning personalisation off also forgets the recently viewed products.
+    set({ prefs: { ...prefs, [k]: on }, ...(k === 'share' && !on ? { viewedIds: [] } : {}) });
   },
 
   resetFilters: () => set({ dealsOnly: false, availOnly: false, price: null }),
@@ -254,8 +260,16 @@ export const useApp = create<State & Actions>()(
   {
     // Saved with AsyncStorage so the user stays signed in (and keeps their data) across launches.
     name: 'spice-kart',
-    version: 1,
+    version: 2,
     storage: createJSONStorage(() => AsyncStorage),
+    // v1 saved the old placeholder user ("Jaiveer Singh") for anyone who skipped their details.
+    migrate: (saved, version) => {
+      const s = saved as Partial<State>;
+      if (version < 2 && s.user?.first === 'Jaiveer' && s.user.last === 'Singh') {
+        s.user = { ...initial.user, avatar: s.user.avatar, email: s.user.email, mobile: s.phone ?? '' };
+      }
+      return s as State & Actions;
+    },
     partialize: (s) => ({
       signedIn: s.signedIn,
       phone: s.phone,
@@ -337,8 +351,11 @@ export function sortAndFilter(list: Product[], s: Pick<State, 'sort' | 'dealsOnl
 /** The currently selected delivery address. */
 export const useAddress = () => useApp((s) => s.addresses[s.addr] ?? s.addresses[0]);
 
-/** "Jaiveer Singh" → "JS". */
-export const initialsOf = (u: User) => ((u.first[0] ?? '') + (u.last[0] ?? '')).toUpperCase() || '?';
+/** "Jaiveer Singh" → "JS" ('' when no name is set). */
+export const initialsOf = (u: User) => ((u.first.trim()[0] ?? '') + (u.last.trim()[0] ?? '')).toUpperCase();
+
+/** "Hi Jaiveer" or "Hi there" when no name is set. */
+export const greetingName = (u: User) => u.first.trim() || 'there';
 
 /** The card used for checkout and wallet top-ups. */
 export const useDefaultCard = () => useApp((s) => s.cards[s.defaultCard] ?? s.cards[0]);

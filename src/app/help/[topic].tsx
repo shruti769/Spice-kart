@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
@@ -9,10 +9,9 @@ import { BackIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
-import { helpTopics, type HelpQuestion } from '@/data/help-topics';
+import type { HelpQuestion } from '@/data/help-topics';
 import { goBack } from '@/lib/nav';
-import { useDeliverySettings } from '@/lib/remote-delivery';
-import { usePostcodeStore } from '@/lib/remote-postcodes';
+import { sendHelpFeedback, trackHelpView, useHelpTopics } from '@/lib/remote-help';
 import { useApp } from '@/store/app-store';
 
 const layout = LinearTransition.duration(200);
@@ -30,6 +29,9 @@ function Answer({ item }: { item: HelpQuestion }) {
   const flash = useApp((s) => s.flash);
   const [vote, setVote] = useState<'yes' | 'no' | null>(null);
   const answer = (v: 'yes' | 'no') => {
+    if (vote === v) return;
+    // Only the first answer is counted.
+    if (item.id && !vote) sendHelpFeedback(item.id, v === 'yes');
     setVote(v);
     flash(v === 'yes' ? 'Thanks for the feedback' : 'Thanks · we’ll improve this answer');
   };
@@ -67,11 +69,17 @@ function Answer({ item }: { item: HelpQuestion }) {
 export default function HelpTopicScreen() {
   const pad = usePad();
   const { topic: id, q } = useLocalSearchParams<{ topic: string; q?: string }>();
-  const settings = useDeliverySettings();
-  const postcodes = usePostcodeStore((s) => s.postcodes);
-  const topic = helpTopics(settings, [...postcodes]).find((t) => t.id === id);
+  const topic = useHelpTopics().find((t) => t.id === id);
   // The first question starts open (or the one linked to).
   const [open, setOpen] = useState<number | null>(() => Number(q ?? 0) || 0);
+  // Count each question once per visit when it's opened.
+  const openId = open == null ? undefined : topic?.questions[open]?.id;
+  const [seen] = useState(() => new Set<string>());
+  useEffect(() => {
+    if (!openId || seen.has(openId)) return;
+    seen.add(openId);
+    trackHelpView(openId);
+  }, [openId, seen]);
 
   if (!topic) return <Redirect href="/help" />;
 
@@ -105,7 +113,7 @@ export default function HelpTopicScreen() {
             {topic.questions.map((item, i) => {
               const isOpen = open === i;
               return (
-                <Animated.View key={item.q} layout={layout} style={[i > 0 && styles.divider, isOpen && styles.openBg]}>
+                <Animated.View key={item.id ?? item.q} layout={layout} style={[i > 0 && styles.divider, isOpen && styles.openBg]}>
                   <Tap
                     accessibilityRole="button"
                     accessibilityState={{ expanded: isOpen }}
@@ -117,7 +125,7 @@ export default function HelpTopicScreen() {
                     </View>
                     <Toggle open={isOpen} />
                   </Tap>
-                  {isOpen && <Answer item={item} />}
+                  {isOpen && <Answer key={item.id ?? item.q} item={item} />}
                 </Animated.View>
               );
             })}

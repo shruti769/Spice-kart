@@ -8,9 +8,10 @@ import { ChevronRight, WalletIcon } from '@/components/icons';
 import { Toggle } from '@/components/ui/toggle';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
-import { LOCAL, WALLET_BALANCE } from '@/data/catalog';
+import { LOCAL } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
-import { useApp, usePref, useTotals } from '@/store/app-store';
+import { logOut } from '@/lib/remote-privacy';
+import { greetingName, useApp, usePref, useTotals } from '@/store/app-store';
 
 const S = '#3F3F3B';
 
@@ -73,7 +74,6 @@ const ICONS: Record<string, ReactNode> = {
 type Row = [icon: keyof typeof ICONS, label: string, meta: string];
 
 const ACCOUNT_ROWS: Row[] = [
-  ['person', 'Personal details', 'Jaiveer S'],
   ['pin', 'Saved addresses', '2 saved'],
   ['card', 'Payment methods', 'Visa · 4417'],
 ];
@@ -141,8 +141,8 @@ export default function AccountScreen() {
   const wallet = useApp((s) => s.wallet);
   const sensitive = usePref('sens', true);
 
-  const restart = () => {
-    useApp.getState().restart();
+  const restart = async () => {
+    await logOut();
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
   };
@@ -156,7 +156,7 @@ export default function AccountScreen() {
         style={{ borderBottomWidth: 1, borderBottomColor: '#DDE9DA', paddingTop: pad.top(52), paddingHorizontal: 14, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 11 }}>
         <Image source={LOCAL.appIcon} accessibilityLabel="Spice Kart" style={{ width: 40, height: 40, borderRadius: 10 }} />
         <View style={{ gap: 3, flexShrink: 1 }}>
-          <Txt numberOfLines={1} style={[f(700, 15.5, 1.2), { color: C.forest }]}>Hi, {user.first}</Txt>
+          <Txt numberOfLines={1} style={[f(700, 15.5, 1.2), { color: C.forest }]}>Hi, {greetingName(user)}</Txt>
           {!!user.email && <Txt numberOfLines={1} style={[f(400, 11.5, 1), { color: C.greenMuted }]}>{user.email}</Txt>}
         </View>
       </Grad>
@@ -183,7 +183,7 @@ export default function AccountScreen() {
             <View style={{ gap: 3, flexShrink: 1 }}>
               <Txt numberOfLines={1} style={[f(600, 11, 1), { color: 'rgba(255,255,255,0.66)' }]}>Spice Kart Money</Txt>
               <Txt numberOfLines={1} style={[f(700, 19, 1), { color: '#fff' }]}>
-                {'$' + (wallet ?? WALLET_BALANCE).toFixed(0)}.00
+                {'$' + (wallet ?? 0).toFixed(2)}
               </Txt>
             </View>
             <Tap
@@ -198,7 +198,7 @@ export default function AccountScreen() {
         </Grad>
 
         <Group title="YOUR ACCOUNT">
-          {ACCOUNT_ROWS.map((r) => (
+          {[['person', 'Personal details', user.first.trim() ? user.first.trim() + ' ' + (user.last.trim()[0] ?? '') : 'Add your name'] as Row, ...ACCOUNT_ROWS].map((r) => (
             <LinkRow key={r[1]} row={r} />
           ))}
         </Group>

@@ -3,17 +3,18 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { ChevronDown, SearchIcon } from '@/components/icons';
+import { ChevronDown, PersonIcon, SearchIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
 import { PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { WALLET_BALANCE, findProduct, type Category, type Product } from '@/data/catalog';
+import { findProduct, type Category, type Product } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
 import { useBanners } from '@/lib/remote-banners';
 import { useCategories, useProducts } from '@/lib/remote-catalog';
 import { useDeliverySettings } from '@/lib/remote-delivery';
-import { initialsOf, useAddress, useApp } from '@/store/app-store';
+import { shortBalance } from '@/lib/remote-wallet';
+import { initialsOf, useAddress, useApp, usePref } from '@/store/app-store';
 
 
 
@@ -107,6 +108,7 @@ export default function HomeScreen() {
   const user = useApp((s) => s.user);
   const wallet = useApp((s) => s.wallet);
   const order = useApp((s) => s.order);
+  const personalised = usePref('share', true);
   const products = useProducts();
   const { etaMinutes: eta } = useDeliverySettings();
   const categories = useCategories();
@@ -114,12 +116,13 @@ export default function HomeScreen() {
   const middleBanners = useBanners('home_middle');
 
   // All product sections come from Supabase; each is hidden while it has nothing to show.
-  const buyAgain = (order?.itemIds ?? []).map(findProduct).filter((p): p is Product => !!p);
+  // "Buy again" uses the order history, so it's hidden while personalisation is off.
+  const buyAgain = (personalised ? (order?.itemIds ?? []) : []).map(findProduct).filter((p): p is Product => !!p);
   const essentials = products.slice(0, HOME_LIMIT);
   const deals = products.filter((p) => p.orig > p.price).slice(0, 4);
 
   const addrLabel = address.label + ' • ' + address.area;
-  const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0);
+  const walletStr = shortBalance(wallet ?? 0);
 
   return (
     <Screen>
@@ -141,8 +144,10 @@ export default function HomeScreen() {
             <Tap accessibilityLabel="Account" onPress={() => router.push('/profile')} style={styles.avatar}>
               {user.avatar ? (
                 <Image source={{ uri: user.avatar }} contentFit="cover" style={StyleSheet.absoluteFill} />
-              ) : (
+              ) : initialsOf(user) ? (
                 <Txt style={[f(700, 14, 1.2), { color: C.lime }]}>{initialsOf(user)}</Txt>
+              ) : (
+                <PersonIcon size={18} color={C.lime} />
               )}
             </Tap>
           </View>

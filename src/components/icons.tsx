@@ -17,7 +17,14 @@ export const SearchIcon = ({ size = 16, color = '#6E6E68' }: P) => (
   </Svg>
 );
 
-export const CartIcon = ({ size = 18, color = '#0B3D1F' }: P) => (
+export const PersonIcon = ({ size = 18, color = '#0B3D1F' }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <Circle cx={10} cy={7} r={3.4} stroke={color} strokeWidth={1.6} />
+    <Path d="M3.8 17c.9-3 3.3-4.6 6.2-4.6s5.3 1.6 6.2 4.6" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+  </Svg>
+);
+
+export const CartIcon =({ size = 18, color = '#0B3D1F' }: P) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
     <Path d="M3 4h2l1.8 9.2h8.6L17 6.5H6" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx={8} cy={17} r={1.4} fill={color} />

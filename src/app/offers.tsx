@@ -8,11 +8,12 @@ import { BottomNav } from '@/components/bottom-nav';
 import { BackIcon } from '@/components/icons';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { WALLET_BALANCE, findCategory } from '@/data/catalog';
+import { findCategory } from '@/data/catalog';
 import { goBack, goTab, openCategory } from '@/lib/nav';
 import { couponBadge, couponTerms, useCoupons, type Coupon } from '@/lib/remote-coupons';
 import { useDeliverySettings } from '@/lib/remote-delivery';
 import { dealsEndNote, tileImage, tileText, useOfferTiles, type OfferTile } from '@/lib/remote-offers';
+import { shortBalance } from '@/lib/remote-wallet';
 import { cartTotals, useApp, type CouponCode } from '@/store/app-store';
 
 /** Soft tints cycled across the coupon cards' value panel. */
@@ -141,7 +142,7 @@ function BankRow({ icon, title, sub, badge, last }: { icon: 'card' | 'wallet'; t
 export default function OffersScreen() {
   const pad = usePad();
   const wallet = useApp((s) => s.wallet);
-  const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0);
+  const walletStr = shortBalance(wallet ?? 0);
   const { coupons, loaded } = useCoupons();
   const { freeOver } = useDeliverySettings();
   const { deals, bank } = useOfferTiles();

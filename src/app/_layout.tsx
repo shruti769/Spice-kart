@@ -6,6 +6,7 @@ import {
   Inter_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import { useLastNotificationResponse } from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -24,7 +25,11 @@ import { startRemoteOrders } from '@/lib/remote-orders';
 import { startRemotePostcodes } from '@/lib/remote-postcodes';
 import { startRemoteConfig } from '@/lib/remote-config';
 import { startRemoteStores } from '@/lib/remote-store';
+import { handleNotificationTap, startRemotePrivacy } from '@/lib/remote-privacy';
 import { startRemoteProfile } from '@/lib/remote-profile';
+import { startRemoteHelp } from '@/lib/remote-help';
+import { startRemoteSupport } from '@/lib/remote-support';
+import { startRemoteWallet } from '@/lib/remote-wallet';
 import { checkSupabaseConnection } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -39,10 +44,14 @@ startRemoteDelivery();
 startRemoteOffers();
 startRemoteBanners();
 startRemoteProfile();
+startRemotePrivacy();
 startRemoteOrders();
 startRemotePostcodes();
 startRemoteStores();
 startRemoteConfig();
+startRemoteHelp();
+startRemoteSupport();
+startRemoteWallet();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -56,6 +65,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
+
+  // A tapped push notification (also the one that launched the app) opens what it links to.
+  const tapped = useLastNotificationResponse();
+  const ready = loaded || !!error;
+  useEffect(() => {
+    if (ready) handleNotificationTap(tapped);
+  }, [ready, tapped]);
 
   if (!loaded && !error) return null;
 

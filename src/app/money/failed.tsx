@@ -50,7 +50,7 @@ export default function MoneyFailedScreen() {
         <Card>
           <KV k="Attempted amount" v={amountStr} weight={600} />
           <KV k="Card" v={method.short} />
-          <KV k="Balance" v={`${walletStr}.00 · unchanged`} last />
+          <KV k="Balance" v={`${walletStr} · unchanged`} last />
         </Card>
 
         <View

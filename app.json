@@ -47,6 +47,13 @@
       ],
       "expo-sqlite",
       [
+        "expo-notifications",
+        {
+          "color": "#0B3D1F",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Spice Kart uses your location to fill in your delivery address, check that we deliver to you, and record where an order was placed from."

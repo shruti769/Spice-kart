@@ -18,6 +18,8 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const PRODUCT_COLUMNS =
   'id, name, brand, category_id, subcategory, description, price, compare_at_price, weight, image_url, stock_qty, track_inventory';
+/** `sensitive` comes from the privacy migration; products still load without it. */
+let withSensitive = true;
 const CATEGORY_COLUMNS = 'id, name, short_name, image_url, bg_color, subcategories(name, sort)';
 
 /** Bumps every time Supabase categories or products change, so screens re-render. */
@@ -35,11 +37,17 @@ const loadCatalog = singleFlight(async () => {
     setRemoteCategories(cats.data as RemoteCategoryRow[]);
   }
 
-  const prods = await supabase.from('products').select(PRODUCT_COLUMNS).order('created_at', { ascending: false });
+  const select = () =>
+    supabase.from('products').select(withSensitive ? PRODUCT_COLUMNS + ', sensitive' : PRODUCT_COLUMNS).order('created_at', { ascending: false });
+  let prods = await select();
+  if (prods.error && withSensitive && /sensitive/.test(prods.error.message)) {
+    withSensitive = false;
+    prods = await select();
+  }
   if (prods.error) {
     if (__DEV__) console.warn('Could not load products from Supabase:', prods.error.message);
   } else {
-    setRemoteProducts((prods.data as RemoteProductRow[]).map(productFromRow).filter((p): p is Product => !!p));
+    setRemoteProducts((prods.data as unknown as RemoteProductRow[]).map(productFromRow).filter((p): p is Product => !!p));
   }
   useCatalogVersion.setState((s) => ({ version: s.version + 1 }));
 });

@@ -6,7 +6,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextI
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { BackIcon } from '@/components/icons';
+import { BackIcon, PersonIcon } from '@/components/icons';
 import { BottomSheet } from '@/components/overlays';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
@@ -291,7 +291,7 @@ export default function PersonalScreen() {
           <View style={styles.avatarBlock}>
             <Tap accessibilityRole="button" accessibilityLabel="Change profile photo" onPress={changePhoto} style={styles.avatar}>
               {avatar && <Image source={{ uri: avatar }} contentFit="cover" style={styles.avatarPhoto} />}
-              {!avatar && <Txt style={styles.initials}>{((v.first.trim()[0] ?? '') + (v.last.trim()[0] ?? '')).toUpperCase() || '?'}</Txt>}
+              {!avatar && (v.first.trim() || v.last.trim() ? <Txt style={styles.initials}>{((v.first.trim()[0] ?? '') + (v.last.trim()[0] ?? '')).toUpperCase()}</Txt> : <PersonIcon size={34} color={LIME} />)}
               <View style={styles.editBadge}>
                 <Svg width={14} height={14} viewBox="0 0 20 20" fill="none">
                   <Path d="M4 15.2l9.1-9.1 2.8 2.8-9.1 9.1H4v-2.8z" stroke={FOREST} strokeWidth={1.6} strokeLinejoin="round" />

@@ -4,16 +4,16 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
-import { REMOTE_PREFIX, money } from '@/data/catalog';
+import { REMOTE_PREFIX, findProduct, money } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
 import { isActiveOrder, useOrders, type Order, type OrderStatus } from '@/lib/remote-orders';
-import { useApp } from '@/store/app-store';
+import { useApp, usePref } from '@/store/app-store';
 
 type OrderRow = {
   id: string;
   no: string;
   date: string;
-  items: { key: string; img: string }[];
+  items: { key: string; img: string; sensitive: boolean }[];
   /** Catalogue ids and quantities for Reorder. */
   lines: { id: string; qty: number }[];
   total: string;
@@ -48,7 +48,11 @@ function toRow(o: Order): OrderRow {
     id: o.id,
     no: 'Order #' + o.no,
     date: dayLabel(o.createdAt),
-    items: o.items.map((i, n) => ({ key: (i.productId ?? i.name) + n, img: i.img })),
+    items: o.items.map((i, n) => ({
+      key: (i.productId ?? i.name) + n,
+      img: i.img,
+      sensitive: !!i.productId && !!findProduct(REMOTE_PREFIX + i.productId)?.sensitive,
+    })),
     // A deleted product has no id; it still counts as "unavailable" in the Reorder toast.
     lines: o.items.map((i) => ({ id: i.productId ? REMOTE_PREFIX + i.productId : '', qty: i.qty })),
     total: money(o.total),
@@ -62,12 +66,14 @@ function toRow(o: Order): OrderRow {
 const TABS = ['Active', 'Past Orders'] as const;
 
 function OrderCard({ o }: { o: OrderRow }) {
+  const hideSensitive = usePref('sens', true);
   // Items still in the catalogue go into the cart at their current price, then open the cart.
   const reorder = () => {
     if (useApp.getState().reorder(o.lines) > 0) router.push('/cart');
   };
+  // Past orders: report a problem with this order (opens a support chat about it).
   const secondary = () =>
-    o.live ? router.push({ pathname: '/track', params: { id: o.id } }) : useApp.getState().flash('Receipt sent to your email');
+    router.push(o.live ? { pathname: '/track', params: { id: o.id } } : { pathname: '/support/issue', params: { order: o.id } });
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -83,7 +89,7 @@ function OrderCard({ o }: { o: OrderRow }) {
       </View>
       <View style={styles.items}>
         {o.items.slice(0, 4).map((p) => (
-          <Photo key={p.key} source={p.img} crop style={styles.thumb} />
+          <Photo key={p.key} source={p.img} crop blur={hideSensitive && p.sensitive} style={styles.thumb} />
         ))}
         <Txt style={[f(700, 16.5, 1.2), { marginLeft: 'auto' }]}>{o.total}</Txt>
       </View>
@@ -92,7 +98,7 @@ function OrderCard({ o }: { o: OrderRow }) {
           <Txt style={[f(700, 13.5, 1.2), { color: C.forest }]}>Reorder</Txt>
         </Tap>
         <Tap onPress={secondary} pressedStyle={{ backgroundColor: C.field }} style={[styles.button, styles.secondary]}>
-          <Txt style={f(600, 13.5, 1.2)}>{o.live ? 'Track' : 'View receipt'}</Txt>
+          <Txt style={f(600, 13.5, 1.2)}>{o.live ? 'Track' : 'Get help'}</Txt>
         </Tap>
       </View>
     </View>

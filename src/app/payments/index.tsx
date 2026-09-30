@@ -15,7 +15,6 @@ import {
 import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Screen, Txt } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
-import { WALLET_BALANCE } from '@/data/catalog';
 import { brandName, useApp, type SavedCard } from '@/store/app-store';
 
 const TINTS: Record<SavedCard['brand'], string> = { VISA: '#F3F7EC', MASTERCARD: '#F2F4F8', AMEX: '#EEF4F7' };
@@ -37,7 +36,7 @@ export default function PaymentsScreen() {
     useApp.getState().removeCard(i);
     flash('Card removed');
   };
-  const walletStr = '$' + (wallet ?? WALLET_BALANCE).toFixed(0) + '.00';
+  const walletStr = '$' + (wallet ?? 0).toFixed(2);
 
   return (
     <Screen>

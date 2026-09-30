@@ -7,22 +7,29 @@ import { Card, CardGlyph, Footer, IconBox, PrimaryButton, SectionLabel, useWalle
 import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { useWalletStore, type WalletTx } from '@/lib/remote-wallet';
 import { brandName, useApp, useDefaultCard } from '@/store/app-store';
 
 const PRESETS = [10, 25, 50, 100];
 
-const WALLET_TX = [
-  ['Added money', '1 Sep · Visa 4417', '+ $50.00', '#0B7A32'],
-  ['Order #SK10482', '31 Aug · groceries', '− $42.80', '#1F1F1F'],
-  ['Refund · missing item', '31 Aug · sourdough loaf', '+ $6.50', '#0B7A32'],
-  ['Cashback · PayID', '28 Aug · 5% back', '+ $1.35', '#0B7A32'],
-] as const;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** One activity row: title, "1 Sep · Visa · 4417", "+ $50.00" and its colour. */
+function txRow(t: WalletTx): [id: number, label: string, date: string, amount: string, color: string] {
+  const d = new Date(t.createdAt);
+  const label =
+    t.kind === 'topup' ? 'Added money' : t.kind === 'refund' ? 'Refund' : t.kind === 'adjustment' ? (t.amount > 0 ? 'Credit from Spice Kart' : 'Adjustment') : t.note || 'Order';
+  const detail = t.kind === 'topup' ? t.method : t.kind === 'order_payment' ? 'Paid for groceries' : t.note.replace(/^Refund · /, '');
+  const sign = t.amount > 0 ? '+ ' : '− ';
+  return [t.id, label, [d.getDate() + ' ' + MONTHS[d.getMonth()], detail].filter(Boolean).join(' · '), sign + '$' + Math.abs(t.amount).toFixed(2), t.amount > 0 ? '#0B7A32' : '#1F1F1F'];
+}
 
 /** Spice Kart Money wallet (prototype `sMoney`). */
 export default function MoneyScreen() {
   const { walletStr, amountStr, amountText } = useWalletVals();
   const set = useApp((s) => s.set);
   const card = useDefaultCard();
+  const { transactions, loaded } = useWalletStore();
 
   return (
     <Screen>
@@ -49,7 +56,7 @@ export default function MoneyScreen() {
               AVAILABLE BALANCE
             </Txt>
             <Txt numberOfLines={1} style={[f(800, 32, 1), { color: '#fff', letterSpacing: -0.8 }]}>
-              {walletStr}.00
+              {walletStr}
             </Txt>
             <Txt style={[f(400, 10.5, 1.5), { color: 'rgba(255,255,255,0.62)' }]}>
               Use at checkout on any order. Refunds and cashback land here instantly.
@@ -144,13 +151,18 @@ export default function MoneyScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <SectionLabel>RECENT ACTIVITY</SectionLabel>
             <Txt numberOfLines={1} style={[f(400, 10.5, 1), { color: C.muted3 }]}>
-              Last 30 days
+              Latest first
             </Txt>
           </View>
           <Card>
-            {WALLET_TX.map(([label, date, amount, color]) => (
+            {transactions.length === 0 && (
+              <Txt style={[f(400, 12, 1.4), { color: C.muted2, padding: 12 }]}>
+                {loaded ? 'No activity yet. Top-ups, payments and refunds show up here.' : 'Loading…'}
+              </Txt>
+            )}
+            {transactions.map(txRow).map(([id, label, date, amount, color]) => (
               <View
-                key={label}
+                key={id}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',

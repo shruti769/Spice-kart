@@ -58,12 +58,12 @@ export default function PolicyScreen() {
             1. Cancelling an order
           </Txt>
           <Txt style={para}>
-            You may cancel any order free of charge until your shopper begins picking. Once picking has started, a
-            restocking fee of up to $4.95 may apply to fresh and chilled items that cannot be returned to the shelf.
+            Orders can’t be cancelled in the app yet. Contact support before your shopper begins picking and we’ll cancel
+            it free of charge. Once picking has started, a restocking fee of up to $4.95 may apply to fresh and chilled
+            items that cannot be returned to the shelf.
           </Txt>
           <Txt style={para}>
-            Orders already out for delivery cannot be cancelled in the app. Contact support and our team will assist where
-            possible.
+            Orders already out for delivery cannot be cancelled. Contact support and our team will assist where possible.
           </Txt>
           <Txt
             style={[h2, { marginTop: 4 }]}
@@ -73,8 +73,8 @@ export default function PolicyScreen() {
             2. How refunds are issued
           </Txt>
           <Txt style={para}>
-            Approved refunds are credited to Spice Kart Money immediately. If you prefer your original payment method,
-            refunds are returned within 3–5 business days depending on your bank.
+            Approved refunds are returned to your original payment method within 3–5 business days, depending on your
+            bank. We’ll confirm each refund in your support chat.
           </Txt>
           <Txt
             style={[h2, { marginTop: 4 }]}
