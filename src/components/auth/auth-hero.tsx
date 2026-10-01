@@ -10,13 +10,13 @@ export const SHEET_OVERLAP = 14;
 
 /** Green hero with the moving product tiles and centred brand, shared by login and OTP. */
 export function AuthHero() {
-  const { width, height } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const heroHeight = Math.max(300, height * 0.475) + SHEET_OVERLAP;
 
   return (
     <View style={[styles.hero, { height: heroHeight }]}>
       <Grad preset="hero" style={StyleSheet.absoluteFill} />
-      <LoginProducts width={width} />
+      <LoginProducts />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.tint]} />
       <Grad colors={['rgba(8,53,26,0)', 'rgba(8,53,26,0)', 'rgba(8,53,26,0.68)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
       <View style={styles.brand}>
