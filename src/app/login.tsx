@@ -137,11 +137,13 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialRow}>
-            <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => socialSignIn('Apple')} style={styles.social}>
-              <AppleIcon /><Txt style={f(600, 13, 1.2)}>Apple</Txt>
-            </Tap>
+            {Platform.OS === 'ios' && (
+              <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => socialSignIn('Apple')} style={styles.social}>
+                <AppleIcon /><Txt style={f(600, 13, 1.2)}>Apple</Txt>
+              </Tap>
+            )}
             <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => socialSignIn('Google')} style={styles.social}>
-              <GoogleIcon /><Txt style={f(600, 13, 1.2)}>Google</Txt>
+              <GoogleIcon /><Txt style={f(600, 13, 1.2)}>{Platform.OS === 'ios' ? 'Google' : 'Continue with Google'}</Txt>
             </Tap>
           </View>
 

@@ -1,6 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
 
+import { askPhotoSource, type PhotoSource } from '@/components/photo-source-sheet';
+
 type Options = { title: string; /** Crop to a square (profile pictures). */ square?: boolean };
 
 function denied(what: string) {
@@ -10,7 +12,7 @@ function denied(what: string) {
   ]);
 }
 
-async function launch(source: 'camera' | 'library', square?: boolean) {
+async function launch(source: PhotoSource, square?: boolean) {
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: 'images', allowsEditing: !!square, aspect: [1, 1], quality: 0.7 };
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -26,20 +28,14 @@ async function launch(source: 'camera' | 'library', square?: boolean) {
 }
 
 /** Ask "Take photo / Choose from library" and resolve with the picked image URI (null if cancelled). */
-export function pickPhoto({ title, square }: Options): Promise<string | null> {
-  return new Promise((resolve) => {
-    const run = (source: 'camera' | 'library') =>
-      launch(source, square)
-        .then(resolve)
-        .catch(() => {
-          // The camera isn't available on simulators.
-          Alert.alert('Camera unavailable', 'Please choose a photo from your library instead.');
-          resolve(null);
-        });
-    Alert.alert(title, undefined, [
-      { text: 'Take photo', onPress: () => run('camera') },
-      { text: 'Choose from library', onPress: () => run('library') },
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-    ], { cancelable: true, onDismiss: () => resolve(null) });
-  });
+export async function pickPhoto({ title, square }: Options): Promise<string | null> {
+  const source = await askPhotoSource(title);
+  if (!source) return null;
+  try {
+    return await launch(source, square);
+  } catch {
+    // The camera isn't available on simulators.
+    Alert.alert('Camera unavailable', 'Please choose a photo from your library instead.');
+    return null;
+  }
 }

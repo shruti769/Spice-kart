@@ -6,7 +6,6 @@ import {
   Inter_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { useLastNotificationResponse } from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -15,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Toast } from '@/components/overlays';
+import { PhotoSourceSheet } from '@/components/photo-source-sheet';
 import { C } from '@/constants/theme';
 import { startRemoteBanners } from '@/lib/remote-banners';
 import { startRemoteCatalog } from '@/lib/remote-catalog';
@@ -24,6 +24,7 @@ import { startRemoteOffers } from '@/lib/remote-offers';
 import { startRemoteOrders } from '@/lib/remote-orders';
 import { startRemotePostcodes } from '@/lib/remote-postcodes';
 import { startRemoteConfig } from '@/lib/remote-config';
+import { useLastNotificationResponse } from '@/lib/notifications';
 import { startRemoteStores } from '@/lib/remote-store';
 import { handleNotificationTap, startRemotePrivacy } from '@/lib/remote-privacy';
 import { startRemoteProfile } from '@/lib/remote-profile';
@@ -96,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="money/failed" options={{ animation: 'fade_from_bottom' }} />
         </Stack>
         <Toast />
+        <PhotoSourceSheet />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

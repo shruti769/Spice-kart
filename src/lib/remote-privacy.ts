@@ -1,11 +1,12 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import type { NotificationResponse } from 'expo-notifications';
 import { router } from 'expo-router';
 import { Alert, Linking, Platform } from 'react-native';
 
 import { findCategory } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
+import { Notifications } from '@/lib/notifications';
 import { ensureUserId } from '@/lib/remote-profile';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useApp, whenHydrated } from '@/store/app-store';
@@ -58,7 +59,7 @@ async function saveOptIn(k: ServerPref, on: boolean) {
 // ─── Push ─────────────────────────────────────────────────────────────────────────────────
 
 // Show pushes that arrive while the app is open, too.
-if (Platform.OS !== 'web') {
+if (Platform.OS !== 'web' && Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldPlaySound: true,
@@ -79,7 +80,7 @@ export type PushResult = 'ok' | 'denied' | 'unsupported' | 'failed';
  * yet. Needs a real device and a development / store build (not Expo Go on Android).
  */
 export async function registerPush({ ask }: { ask: boolean }): Promise<PushResult> {
-  if (!isSupabaseConfigured || Platform.OS === 'web' || !Device.isDevice) return 'unsupported';
+  if (!isSupabaseConfigured || Platform.OS === 'web' || !Device.isDevice || !Notifications) return 'unsupported';
   try {
     if (Platform.OS === 'android') {
       // send-push uses 'orders' for order updates and 'default' for everything else.
@@ -138,7 +139,7 @@ function openLink(link: unknown) {
 let lastHandled: string | null = null;
 
 /** Open what a tapped notification points to (once per notification, only when signed in). */
-export async function handleNotificationTap(response: Notifications.NotificationResponse | null | undefined) {
+export async function handleNotificationTap(response: NotificationResponse | null | undefined) {
   if (!response) return;
   const id = response.notification.request.identifier;
   if (id === lastHandled) return;
@@ -181,25 +182,6 @@ export async function setServerPref(k: ServerPref, on: boolean) {
 }
 
 // ─── Your data ────────────────────────────────────────────────────────────────────────────
-
-const DATA_ERRORS: Record<string, string> = {
-  no_email: 'Add an email in Personal details to receive your data',
-  already_requested: 'Already requested today · check your email',
-};
-
-/** Download personal data: the server emails a copy to the address in Personal details. */
-export async function requestMyData(): Promise<string> {
-  if (!isSupabaseConfigured) return 'Couldn’t request your data. Please try again';
-  try {
-    await ensureUserId();
-    const { error } = await supabase.rpc('request_my_data');
-    if (!error) return 'We’ll email a copy to ' + useApp.getState().user.email.trim() + ' shortly';
-    const code = Object.keys(DATA_ERRORS).find((k) => error.message.includes(k));
-    return code ? DATA_ERRORS[code] : 'Couldn’t request your data. Please try again';
-  } catch {
-    return 'Couldn’t request your data. Please try again';
-  }
-}
 
 /** Remove every file this user uploaded to `bucket` (their `<uid>/` folder). */
 async function removeFolder(bucket: string, uid: string) {

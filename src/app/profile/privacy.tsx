@@ -17,7 +17,7 @@ import { CenterDialog } from '@/components/overlays';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { deleteMyAccount, requestMyData, setServerPref } from '@/lib/remote-privacy';
+import { deleteMyAccount, setServerPref } from '@/lib/remote-privacy';
 import { useApp, usePref } from '@/store/app-store';
 
 const ink = C.ink2;
@@ -56,12 +56,6 @@ const EyeOffIcon = () => (
   </Svg>
 );
 
-const DownloadIcon = () => (
-  <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
-    <Path d="M10 3.4v9M6.4 9.4L10 13l3.6-3.6M4 16h12" stroke={ink} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
 const DocIcon = () => (
   <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
     <Path d="M5 3.4h6.6L15.5 7v9.6a1 1 0 01-1 1H6a1 1 0 01-1-1V3.4z" stroke={ink} strokeWidth={1.5} strokeLinejoin="round" />
@@ -82,13 +76,6 @@ export default function PrivacyScreen() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const close = () => setDeleteOpen(false);
-
-  const downloadData = async () => {
-    if (busy) return;
-    setBusy(true);
-    flash(await requestMyData());
-    setBusy(false);
-  };
 
   const deleteAccount = async () => {
     if (busy) return;
@@ -119,7 +106,6 @@ export default function PrivacyScreen() {
         </Section>
 
         <Section label="YOUR DATA">
-          <LinkRow icon={<DownloadIcon />} title="Download personal data" sub="A copy is emailed to you" onPress={downloadData} />
           <LinkRow icon={<DocIcon />} title="Privacy policy" sub="How we collect and use your data" onPress={() => router.push({ pathname: '/policy', params: { id: 'privacy' } })} />
         </Section>
 
