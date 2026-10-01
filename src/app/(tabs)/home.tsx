@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ChevronDown, PersonIcon, SearchIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
-import { PromoBanner } from '@/components/promo-banner';
+import { FeatureBanner, PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { findProduct, type Category, type Product } from '@/data/catalog';
@@ -114,6 +114,7 @@ export default function HomeScreen() {
   const categories = useCategories();
   const topBanners = useBanners('home_top');
   const middleBanners = useBanners('home_middle');
+  const featureBanners = useBanners('home_feature');
 
   // All product sections come from Supabase; each is hidden while it has nothing to show.
   // "Buy again" uses the order history, so it's hidden while personalisation is off.
@@ -194,6 +195,12 @@ export default function HomeScreen() {
           </>
         )}
 
+        {featureBanners.length > 0 && (
+          <View style={styles.featureBanners}>
+            {featureBanners.map((b) => <FeatureBanner key={b.id} b={b} width={width - 32} />)}
+          </View>
+        )}
+
         {deals.length > 0 && (
           <>
             <SectionHead title="Deals for you" link="All offers" onPress={goOffers} />
@@ -240,4 +247,6 @@ const styles = StyleSheet.create({
 
   shelf: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8, paddingBottom: 12, gap: 8 },
   shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden' },
+
+  featureBanners: { marginTop: 28, paddingHorizontal: 16, gap: 12 },
 });

@@ -9,7 +9,7 @@ import { goTab, openCategory } from '@/lib/nav';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useAddress, useApp } from '@/store/app-store';
 
-export type BannerPlacement = 'home_top' | 'home_middle' | 'category_top';
+export type BannerPlacement = 'home_top' | 'home_middle' | 'home_feature' | 'category_top';
 
 /** A live row of `public.banners` (RLS only returns published ones whose dates include today, Melbourne time). */
 export type Banner = {

@@ -18,8 +18,12 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const PRODUCT_COLUMNS =
   'id, name, brand, category_id, subcategory, description, price, compare_at_price, weight, image_url, stock_qty, track_inventory';
-/** `sensitive` comes from the privacy migration; products still load without it. */
-let withSensitive = true;
+/**
+ * Columns added by later migrations (`sensitive`: privacy, `gallery`: product_gallery). Products
+ * still load without them: a column the database doesn't have yet is dropped and the fetch retried.
+ */
+const optionalColumns = new Set(['sensitive', 'gallery']);
+type RatingRow = { product_id: string; average: number | string; count: number };
 const CATEGORY_COLUMNS = 'id, name, short_name, image_url, bg_color, subcategories(name, sort)';
 
 /** Bumps every time Supabase categories or products change, so screens re-render. */
@@ -38,16 +42,30 @@ const loadCatalog = singleFlight(async () => {
   }
 
   const select = () =>
-    supabase.from('products').select(withSensitive ? PRODUCT_COLUMNS + ', sensitive' : PRODUCT_COLUMNS).order('created_at', { ascending: false });
+    supabase.from('products').select([PRODUCT_COLUMNS, ...optionalColumns].join(', ')).order('created_at', { ascending: false });
+  const ratingsReq = supabase.from('product_ratings').select('product_id, average, count');
   let prods = await select();
-  if (prods.error && withSensitive && /sensitive/.test(prods.error.message)) {
-    withSensitive = false;
+  for (let missing; prods.error && (missing = [...optionalColumns].find((c) => prods.error!.message.includes(c))); ) {
+    optionalColumns.delete(missing);
     prods = await select();
   }
+  // Ratings come from the reviews migration; products still load without them.
+  const ratings = await ratingsReq;
+  if (ratings.error && __DEV__) console.warn('Could not load product ratings:', ratings.error.message);
+  const ratingOf = new Map((ratings.data as RatingRow[] | null ?? []).map((r) => [r.product_id, r]));
   if (prods.error) {
     if (__DEV__) console.warn('Could not load products from Supabase:', prods.error.message);
   } else {
-    setRemoteProducts((prods.data as unknown as RemoteProductRow[]).map(productFromRow).filter((p): p is Product => !!p));
+    const rows = prods.data as unknown as RemoteProductRow[];
+    setRemoteProducts(
+      rows
+        .map((row) => {
+          const p = productFromRow(row);
+          const r = ratingOf.get(row.id);
+          return p && r ? { ...p, rating: Number(r.average), reviewCount: r.count } : p;
+        })
+        .filter((p): p is Product => !!p),
+    );
   }
   useCatalogVersion.setState((s) => ({ version: s.version + 1 }));
 });
@@ -61,7 +79,7 @@ let started = false;
 
 /**
  * Load the catalogue now, refresh when the app returns to the foreground, and live-update while
- * it's open (via `app_changes`, so hiding a product or category shows too). Safe to call twice.
+ * it's open (via `app_changes`, so hiding a product or category shows too; reviews update ratings). Safe to call twice.
  */
 export function startRemoteCatalog() {
   if (started || !isSupabaseConfigured) return;
@@ -72,7 +90,7 @@ export function startRemoteCatalog() {
     if (state === 'active') refreshCatalog();
   });
 
-  onTableChange(['products', 'categories', 'subcategories'], refreshCatalog);
+  onTableChange(['products', 'categories', 'subcategories', 'reviews'], refreshCatalog);
 }
 
 /**

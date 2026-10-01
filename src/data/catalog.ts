@@ -28,9 +28,13 @@ export type Product = {
   orig: number;
   kw: string;
   img: string | number;
+  /** Every photo for the product page carousel, main (`img`) first. */
+  imgs: (string | number)[];
   /** Sub-category shown in the category sidebar (see `subcategoriesOf`). */
   sub: string;
-  rating: string;
+  /** Average of published reviews (0 = no reviews yet), from `product_ratings`. */
+  rating: number;
+  reviewCount: number;
   out: boolean;
   desc: string;
   facts: { k: string; v: string }[];
@@ -184,6 +188,8 @@ export type RemoteProductRow = {
   track_inventory: boolean | null;
   /** Missing until the privacy migration has run. */
   sensitive?: boolean | null;
+  /** Extra photos after `image_url`; missing until the product_gallery migration has run. */
+  gallery?: string[] | null;
 };
 
 /** Convert a Supabase row into the app's Product shape so every screen can show it unchanged. */
@@ -194,6 +200,7 @@ export function productFromRow(r: RemoteProductRow): Product | null {
   const compare = r.compare_at_price == null ? 0 : Number(r.compare_at_price);
   const brand = r.brand ?? '';
   const weight = r.weight ?? '';
+  const img = r.image_url || photo(cat.kw);
   return {
     id: REMOTE_PREFIX + r.id,
     cat: cat.id,
@@ -205,9 +212,11 @@ export function productFromRow(r: RemoteProductRow): Product | null {
     // The app shows a discount only when the original price is higher.
     orig: compare > price ? compare : 0,
     kw: (r.subcategory ?? '').toLowerCase(),
-    img: r.image_url || photo(cat.kw),
+    img,
+    imgs: [img, ...(r.gallery ?? []).filter(Boolean)],
     sub: r.subcategory ?? '',
-    rating: '4.5',
+    rating: 0,
+    reviewCount: 0,
     out: !!r.track_inventory && (r.stock_qty ?? 0) <= 0,
     desc: r.description ?? '',
     sensitive: !!r.sensitive,

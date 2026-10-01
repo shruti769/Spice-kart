@@ -343,7 +343,7 @@ export function sortAndFilter(list: Product[], s: Pick<State, 'sort' | 'dealsOnl
   if (s.price === 'o10') arr = arr.filter((p) => p.price > 10);
   if (s.sort === 'Price: Low to High') arr = [...arr].sort((a, b) => a.price - b.price);
   if (s.sort === 'Price: High to Low') arr = [...arr].sort((a, b) => b.price - a.price);
-  if (s.sort === 'Popular') arr = [...arr].sort((a, b) => Number(b.rating) - Number(a.rating));
+  if (s.sort === 'Popular') arr = [...arr].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
   if (s.sort === 'New') arr = [...arr].reverse();
   return arr;
 }

@@ -4,12 +4,15 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { useApp } from '@/store/app-store';
 
-/** 32×32 cart button used in the list / detail headers, with an optional count badge. */
-export function HeaderCartButton({ count = 0, style }: { count?: number; style?: StyleProp<ViewStyle> }) {
+/** 32×32 cart button used in the list / detail headers, with a count badge (defaults to total items in the cart). */
+export function HeaderCartButton({ count, style }: { count?: number; style?: StyleProp<ViewStyle> }) {
+  const cartCount = useApp((s) => Object.values(s.cart).reduce((sum, q) => sum + q, 0));
+  count ??= cartCount;
   return (
     <Tap
-      accessibilityLabel="Cart"
+      accessibilityLabel={count > 0 ? `Cart, ${count} items` : 'Cart'}
       onPress={() => router.push('/cart')}
       style={[{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }, style]}>
       <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">

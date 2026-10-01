@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { Star } from '@/components/reviews';
 import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { REMOTE_PREFIX, findProduct, money } from '@/data/catalog';
@@ -21,6 +22,8 @@ type OrderRow = {
   statusBg: string;
   statusColor: string;
   live?: boolean;
+  /** Delivered with at least one product still in the store, so it can be rated. */
+  rateable: boolean;
 };
 
 const STATUS: Record<OrderStatus, [label: string, bg: string, color: string]> = {
@@ -60,6 +63,7 @@ function toRow(o: Order): OrderRow {
     statusBg,
     statusColor,
     live: isActiveOrder(o),
+    rateable: o.status === 'delivered' && o.items.some((i) => !!i.productId && !!findProduct(REMOTE_PREFIX + i.productId)),
   };
 }
 
@@ -101,6 +105,16 @@ function OrderCard({ o }: { o: OrderRow }) {
           <Txt style={f(600, 13.5, 1.2)}>{o.live ? 'Track' : 'Get help'}</Txt>
         </Tap>
       </View>
+      {o.rateable && (
+        <Tap
+          onPress={() => router.push({ pathname: '/rate', params: { order: o.id } })}
+          pressedStyle={{ opacity: 0.6 }}
+          style={styles.rate}>
+          <Star size={15} />
+          <Txt style={[f(600, 12.5, 1.2), { color: C.greenDeep }]}>Rate your items</Txt>
+          <Txt style={[f(600, 14, 1), { color: C.greenDeep, marginLeft: 'auto' }]}>›</Txt>
+        </Tap>
+      )}
     </View>
   );
 }
@@ -179,4 +193,5 @@ const styles = StyleSheet.create({
   button: { flex: 1, height: 37, borderWidth: 1, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   reorder: { borderColor: C.limeBorder, backgroundColor: C.lime },
   secondary: { borderColor: C.border, backgroundColor: '#fff' },
+  rate: { flexDirection: 'row', alignItems: 'center', gap: 7, marginHorizontal: 3, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 7, backgroundColor: '#FFF8E6' },
 });

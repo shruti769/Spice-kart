@@ -1,11 +1,12 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { BackIcon, ShieldIcon } from '@/components/icons';
-import { ProductCard } from '@/components/product-card';
+import { ProductCard, QtyStepper } from '@/components/product-card';
+import { ProductGallery } from '@/components/product-gallery';
+import { ReviewsSection } from '@/components/reviews';
 import { HeaderCartButton } from '@/components/shop/header-cart-button';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
@@ -135,14 +136,7 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
       <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <Grad colors={['#F3F7EC', '#FAFBF6']} {...cssAngle(165)} style={{ height: 300 }}>
-          <Image
-            source={typeof prod.img === 'string' ? { uri: prod.img } : prod.img}
-            contentFit="cover"
-            transition={180}
-            cachePolicy="memory-disk"
-            accessibilityLabel={prod.name}
-            style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
-          />
+          <ProductGallery images={prod.imgs} name={prod.name} />
           {disc > 0 && (
             <View style={{ position: 'absolute', top: 12, left: 12, backgroundColor: C.lime, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 6 }}>
               <Txt style={[f(800, 11, 1), { letterSpacing: 0.4, color: C.forest }]}>{disc}% OFF</Txt>
@@ -178,7 +172,7 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pill>{prod.weight}</Pill>
-              <Pill green>{'★ ' + prod.rating}</Pill>
+              {prod.reviewCount > 0 && <Pill green>{`★ ${prod.rating.toFixed(1)} (${prod.reviewCount})`}</Pill>}
               <Pill>{prod.out ? 'Out of stock' : 'In stock'}</Pill>
             </View>
           </View>
@@ -201,6 +195,15 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
               </View>
             ))}
           </View>
+
+          {prod.desc.trim() !== '' && (
+            <View style={{ gap: 7 }}>
+              <Txt style={f(700, 14, 1)}>About this product</Txt>
+              <Txt style={[f(400, 12.5, 1.55), { color: C.ink2 }]}>{prod.desc.trim()}</Txt>
+            </View>
+          )}
+
+          <ReviewsSection prod={prod} />
 
           {related.length > 0 && (
             <>
@@ -233,20 +236,42 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
           <Txt style={f(700, 15, 1)}>{money(prod.price)}</Txt>
           <Txt style={[f(400, 10.5, 1), { color: C.muted }]}>{prod.weight}</Txt>
         </View>
-        <Tap
-          onPress={() => (inCart ? router.push('/cart') : bump(prod.id, 1))}
-          pressedStyle={{ backgroundColor: C.limeHover }}
-          style={{
-            flex: 1,
-            height: 46,
-            borderRadius: 11,
-            backgroundColor: C.lime,
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 6px 14px rgba(107,176,0,0.24)',
-          }}>
-          <Txt style={[f(700, 14, 1), { color: C.forest }]}>{inCart ? 'Added · view cart' : 'Add to cart'}</Txt>
-        </Tap>
+        {inCart ? (
+          <>
+            <QtyStepper id={prod.id} qty={qty} height={46} width={40} />
+            <Tap
+              onPress={() => router.push('/cart')}
+              pressedStyle={{ backgroundColor: '#E9F5D6' }}
+              style={{
+                flex: 1,
+                height: 46,
+                borderRadius: 11,
+                borderWidth: 1.5,
+                borderColor: C.forest,
+                backgroundColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Txt style={[f(700, 14, 1), { color: C.forest }]}>View cart</Txt>
+            </Tap>
+          </>
+        ) : (
+          <Tap
+            disabled={prod.out}
+            onPress={() => bump(prod.id, 1)}
+            pressedStyle={{ backgroundColor: C.limeHover }}
+            style={{
+              flex: 1,
+              height: 46,
+              borderRadius: 11,
+              backgroundColor: prod.out ? '#E4E6E0' : C.lime,
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: prod.out ? undefined : '0 6px 14px rgba(107,176,0,0.24)',
+            }}>
+            <Txt style={[f(700, 14, 1), { color: prod.out ? C.muted : C.forest }]}>{prod.out ? 'Out of stock' : 'Add to cart'}</Txt>
+          </Tap>
+        )}
       </View>
     </Screen>
   );

@@ -34,9 +34,40 @@ export function PromoBanner({ b, index = 0, width = 282 }: { b: Banner; index?: 
   );
 }
 
+/**
+ * Admin's "Home · feature" banner: a large full-width image with the copy over a dark fade at the
+ * bottom — subtitle as the tag, the title, then the CTA as a button (same layout as the admin preview).
+ */
+export function FeatureBanner({ b, width }: { b: Banner; width: number }) {
+  if (!b.image_url) return null;
+  const tag = b.subtitle.trim();
+  const cta = b.cta_label.trim();
+  return (
+    <Tap onPress={() => openBanner(b)} accessibilityLabel={tag ? `${b.title}, ${tag}` : b.title} style={[styles.feature, { width }]}>
+      <Image source={{ uri: b.image_url }} contentFit="cover" style={StyleSheet.absoluteFill} />
+      <Grad colors={['rgba(12,43,26,0)', 'rgba(12,43,26,0.55)', 'rgba(12,43,26,0.92)']} locations={[0, 0.4, 1]} style={styles.featureCopy}>
+        {!!tag && (
+          <View style={[styles.tag, { backgroundColor: C.lime }]}>
+            <Txt numberOfLines={1} style={[f(700, 11, 1.2), { letterSpacing: 1, color: C.forest }]}>{tag.toUpperCase()}</Txt>
+          </View>
+        )}
+        <Txt numberOfLines={2} style={[f(800, 24, 1.15), { color: '#fff' }]}>{b.title}</Txt>
+        {!!cta && (
+          <View style={styles.featureCta}>
+            <Txt numberOfLines={1} style={[f(700, 13, 1.2), { color: C.forest }]}>{cta} →</Txt>
+          </View>
+        )}
+      </Grad>
+    </Tap>
+  );
+}
+
 const styles = StyleSheet.create({
   banner: { flexShrink: 0, height: 143, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
   photo: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 150 },
   copy: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 200, paddingHorizontal: 14, justifyContent: 'center', gap: 8 },
   tag: { alignSelf: 'flex-start', paddingVertical: 3, paddingHorizontal: 7, borderRadius: 4, marginBottom: 2 },
+  feature: { aspectRatio: 1080 / 1175, borderRadius: 14, overflow: 'hidden', backgroundColor: '#E7F1DA' },
+  featureCopy: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 70, paddingHorizontal: 18, paddingBottom: 18, gap: 8 },
+  featureCta: { alignSelf: 'flex-start', marginTop: 4, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 9, backgroundColor: C.lime },
 });
