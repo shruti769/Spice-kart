@@ -1,3 +1,5 @@
+import { categoryArtwork, categoryBackground } from '@/data/category-artwork';
+
 /** Catalogue data — ported verbatim from the prototype. */
 
 /** Category slug from Supabase `categories.id`. */
@@ -155,8 +157,8 @@ export function setRemoteCategories(rows: RemoteCategoryRow[]) {
       short: r.short_name || r.name,
       kw: r.name.toLowerCase(),
       tint: DEFAULT_TINT,
-      img: r.image_url || photo('basket'),
-      bg: r.bg_color || DEFAULT_TINT[0],
+      img: categoryArtwork(r.id, r.image_url) || photo('basket'),
+      bg: categoryBackground(r.id, r.bg_color),
       subs: [...(r.subcategories ?? [])].sort((a, b) => a.sort - b.sort).map((s) => s.name),
     }),
   );
@@ -180,6 +182,16 @@ export type RemoteProductRow = {
   category_id: string;
   subcategory: string | null;
   description: string | null;
+  ingredients: string | null;
+  storage: string | null;
+  sku: string | null;
+  barcode: string | null;
+  unit: string | null;
+  size: string | null;
+  country_of_origin: string | null;
+  attributes: string[] | null;
+  express_delivery: boolean | null;
+  scheduled_delivery: boolean | null;
   price: number | string;
   compare_at_price: number | string | null;
   weight: string | null;
@@ -200,6 +212,18 @@ export function productFromRow(r: RemoteProductRow): Product | null {
   const compare = r.compare_at_price == null ? 0 : Number(r.compare_at_price);
   const brand = r.brand ?? '';
   const weight = r.weight ?? '';
+  const ingredients = r.ingredients?.trim() ?? '';
+  const storage = r.storage?.trim() ?? '';
+  const size = r.size?.trim() ?? '';
+  const unit = r.unit?.trim() ?? '';
+  const origin = r.country_of_origin?.trim() ?? '';
+  const sku = r.sku?.trim() ?? '';
+  const barcode = r.barcode?.trim() ?? '';
+  const attributes = (r.attributes ?? []).map((value) => value.trim()).filter(Boolean).join(', ');
+  const delivery = [
+    ...(r.express_delivery ? ['Express'] : []),
+    ...(r.scheduled_delivery ? ['Scheduled'] : []),
+  ].join(', ');
   const img = r.image_url || photo(cat.kw);
   return {
     id: REMOTE_PREFIX + r.id,
@@ -221,8 +245,17 @@ export function productFromRow(r: RemoteProductRow): Product | null {
     desc: r.description ?? '',
     sensitive: !!r.sensitive,
     facts: [
-      ...(weight ? [{ k: 'Size', v: weight }] : []),
+      ...(weight ? [{ k: 'Weight', v: weight }] : []),
+      ...(size ? [{ k: 'Size', v: size }] : []),
+      ...(unit ? [{ k: 'Unit', v: unit }] : []),
       ...(brand ? [{ k: 'Brand', v: brand }] : []),
+      ...(origin ? [{ k: 'Country of origin', v: origin }] : []),
+      ...(attributes ? [{ k: 'Attributes', v: attributes }] : []),
+      ...(ingredients ? [{ k: 'Ingredients', v: ingredients }] : []),
+      ...(storage ? [{ k: 'Storage', v: storage }] : []),
+      ...(sku ? [{ k: 'SKU', v: sku }] : []),
+      ...(barcode ? [{ k: 'Barcode', v: barcode }] : []),
+      { k: 'Delivery', v: delivery || 'Currently unavailable' },
     ],
   };
 }

@@ -17,7 +17,7 @@ import { onTableChange, singleFlight } from '@/lib/live-changes';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const PRODUCT_COLUMNS =
-  'id, name, brand, category_id, subcategory, description, price, compare_at_price, weight, image_url, stock_qty, track_inventory';
+  'id, name, brand, sku, barcode, category_id, subcategory, description, ingredients, storage, unit, size, country_of_origin, attributes, express_delivery, scheduled_delivery, price, compare_at_price, weight, image_url, stock_qty, track_inventory';
 /**
  * Columns added by later migrations (`sensitive`: privacy, `gallery`: product_gallery). Products
  * still load without them: a column the database doesn't have yet is dropped and the fetch retried.
@@ -34,7 +34,7 @@ export const useCatalogVersion = create<{ version: number }>(() => ({ version: 0
  * catalogue. Categories load first because each product is shown under its category.
  */
 const loadCatalog = singleFlight(async () => {
-  const cats = await supabase.from('categories').select(CATEGORY_COLUMNS).order('sort').order('name');
+  const cats = await supabase.from('categories').select(CATEGORY_COLUMNS).eq('enabled', true).order('sort').order('name');
   if (cats.error) {
     if (__DEV__) console.warn('Could not load categories from Supabase:', cats.error.message);
   } else {

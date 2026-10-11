@@ -10,13 +10,14 @@ import { useEtaMinutes } from '@/lib/remote-delivery';
 
 
 function CategoryCard({ c, count }: { c: Category; count: number }) {
-  const name = c.name;
+  // Keep punctuation separated from the next word so narrow cards wrap at word boundaries.
+  const name = c.name.replace(/,\s*/g, ', ');
   return (
     <Tap onPress={() => openCategory(c.id)} pressedStyle={{ borderColor: C.lime }} style={styles.card}>
       <View style={[styles.art, { backgroundColor: c.bg }]}>
         <Image source={c.img} contentFit="contain" accessibilityLabel={name} style={styles.basket} />
       </View>
-      <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(600, 12.5, 1.25), styles.name]}>{name}</Txt>
+      <Txt style={[f(600, 12.5, 1.25), styles.name]}>{name}</Txt>
       <Txt numberOfLines={1} style={[f(400, 12, 1.25), { color: C.muted }]}>{count} {count === 1 ? 'product' : 'products'}</Txt>
     </Tap>
   );
@@ -50,5 +51,5 @@ const styles = StyleSheet.create({
   art: { width: '100%', aspectRatio: 1, borderRadius: 8, overflow: 'hidden' },
   // The basket sits inside the pastel tile with a small margin, as in the design.
   basket: { position: 'absolute', top: 6, right: 6, bottom: 6, left: 6 },
-  name: { marginTop: 5, marginBottom: 3 },
+  name: { marginTop: 5, marginBottom: 3, minHeight: 31.2 },
 });

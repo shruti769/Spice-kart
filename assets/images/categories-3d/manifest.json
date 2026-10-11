@@ -1,0 +1,92 @@
+[
+  {
+    "key": "flours",
+    "file": "flours.png",
+    "subject": "yellow basket of flour paper sacks, a small bowl of white flour and wheat ears"
+  },
+  {
+    "key": "spices",
+    "file": "spices.png",
+    "subject": "lime green basket of spice glass jars and simple red, orange and green spice pouches"
+  },
+  {
+    "key": "snacks",
+    "file": "snacks.png",
+    "subject": "yellow basket of snack packets and small bowls of crisps, sev, roasted peanuts and chakli"
+  },
+  {
+    "key": "dairy",
+    "file": "dairy.png",
+    "subject": "lime green basket of milk bottles, milk cartons, cheese wedge and yoghurt tubs"
+  },
+  {
+    "key": "bakery",
+    "file": "bakery.png",
+    "subject": "yellow basket of baguettes, bread loaf, croissants and bread rolls"
+  },
+  {
+    "key": "produce",
+    "file": "produce.png",
+    "subject": "lime green basket of carrots, lettuce, broccoli, tomatoes, bell peppers and cucumber"
+  },
+  {
+    "key": "pulses",
+    "file": "pulses.png",
+    "subject": "yellow basket of small burlap sacks filled with red lentils, yellow lentils, chickpeas and kidney beans"
+  },
+  {
+    "key": "grains",
+    "file": "grains.png",
+    "subject": "yellow basket of burlap sacks filled with basmati rice, brown rice, wheat and cereal grains"
+  },
+  {
+    "key": "oil",
+    "file": "oil.png",
+    "subject": "yellow basket of golden cooking oil bottles and clear ghee jars"
+  },
+  {
+    "key": "instant",
+    "file": "instant.png",
+    "subject": "yellow basket of unbranded colorful instant meal packets, a cup of noodles and a sealed ready meal"
+  },
+  {
+    "key": "beverages",
+    "file": "beverages.png",
+    "subject": "lime green basket of tea boxes, coffee jar, tea cup, and juice bottle"
+  },
+  {
+    "key": "condiments",
+    "file": "condiments.png",
+    "subject": "yellow basket of glass jars of mango pickles, lime pickles, chutneys and ginger garlic paste"
+  },
+  {
+    "key": "sweeteners",
+    "file": "sweeteners.png",
+    "subject": "yellow basket of sugar sack, jaggery cubes, honey jar, baking powder tin and vanilla bottle"
+  },
+  {
+    "key": "frozen",
+    "file": "frozen.png",
+    "subject": "lime green basket of frozen vegetable pouches, peas, corn, mixed vegetables, frozen paratha package; subtle frost on packages"
+  },
+  {
+    "key": "fasting",
+    "file": "fasting.png",
+    "subject": "yellow basket of sabudana pearls in a small sack, buckwheat flour sack, peanuts and rock salt bowl"
+  },
+  {
+    "key": "general",
+    "file": "general.png",
+    "subject": "yellow basket of assorted grocery staples: unbranded canned goods, pasta pouch, rice bag and sauce jar"
+  },
+  {
+    "key": "pooja",
+    "file": "pooja.png",
+    "subject": "yellow basket of brass diya lamp, incense box, marigold flowers, coconut and red kumkum bowl"
+  },
+  {
+    "key": "cosmetics",
+    "file": "cosmetics.png",
+    "subject": "lime green basket of shampoo bottle, skin cream jar, soap bar, hair oil bottle and simple lotion tube"
+  }
+]

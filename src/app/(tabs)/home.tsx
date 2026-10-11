@@ -69,11 +69,11 @@ function CategoryRail({ categories }: { categories: Category[] }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catRail} contentContainerStyle={styles.catRailContent}>
       {categories.map((c) => (
-        <Tap key={c.id} onPress={() => openCategory(c.id)} style={styles.catRailItem}>
+        <Tap key={c.id} accessibilityLabel={c.name} onPress={() => openCategory(c.id)} style={styles.catRailItem}>
           <View style={[styles.catRailTile, { backgroundColor: c.bg }]}>
             <CategoryArt c={c} fit="contain" />
           </View>
-          <Txt numberOfLines={2} style={[f(500, 11.5, 1.3), { color: C.ink2, textAlign: 'center' }]}>{c.short}</Txt>
+          <Txt style={[f(500, 12, 1.35), styles.catRailName]}>{c.short.replace(/,\s*/g, ', ')}</Txt>
         </Tap>
       ))}
     </ScrollView>
@@ -231,10 +231,11 @@ const styles = StyleSheet.create({
   searchText: { flex: 1, minWidth: 0, color: C.muted2 },
 
   catRail: { flexGrow: 0, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.divider },
-  // Same 70pt pitch as before, but the full width goes to the item so two-line labels don't get squeezed.
-  catRailContent: { paddingTop: 12, paddingBottom: 14, paddingHorizontal: 13, gap: 0 },
-  catRailItem: { flexShrink: 0, width: 70, alignItems: 'center', gap: 6 },
-  catRailTile: { width: 54, height: 54, borderRadius: 9, overflow: 'hidden' },
+  // Let labels determine the rail height without reserving blank lines below short names.
+  catRailContent: { paddingTop: 12, paddingBottom: 10, paddingHorizontal: 16, gap: 8, alignItems: 'flex-start' },
+  catRailItem: { flexShrink: 0, width: 88, alignItems: 'center', gap: 7 },
+  catRailTile: { width: 64, height: 64, borderRadius: 12, overflow: 'hidden' },
+  catRailName: { width: '100%', color: C.ink2, textAlign: 'center' },
 
   banners: { paddingTop: 28, paddingHorizontal: 16, gap: 10 },
   middleBanners: { paddingTop: 20, paddingHorizontal: 16, gap: 10 },

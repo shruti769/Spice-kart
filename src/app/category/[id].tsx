@@ -18,7 +18,7 @@ import { useCatalogVersion } from '@/lib/remote-catalog';
 import { useEtaMinutes } from '@/lib/remote-delivery';
 import { useTotals } from '@/store/app-store';
 
-const SIDEBAR = 79;
+const SIDEBAR = 92;
 const TILE = 53;
 
 /** Dark-green tab on the sidebar's right edge marking the selected sub-category. */
@@ -87,13 +87,14 @@ export default function CategoryScreen() {
               <Tap
                 key={s.name}
                 accessibilityRole="tab"
+                accessibilityLabel={s.name}
                 accessibilityState={{ selected: on }}
                 onPress={() => setSub(s.name)}
                 style={styles.subItem}>
                 <View style={[styles.subTile, { backgroundColor: s.bg }]}>
                   <Image source={s.img} contentFit="contain" style={StyleSheet.absoluteFill} />
                 </View>
-                <Txt numberOfLines={2} style={[f(500, 12, 1.3), styles.subLabel]}>{s.name}</Txt>
+                <Txt style={[f(on ? 600 : 500, 12, 1.35), styles.subLabel]}>{s.name.replace(/,\s*/g, ', ')}</Txt>
                 {on && <ActiveMarker />}
               </Tap>
             );
@@ -130,10 +131,10 @@ const styles = StyleSheet.create({
   body: { flex: 1, flexDirection: 'row' },
 
   sidebar: { flexGrow: 0, width: SIDEBAR, backgroundColor: '#fff' },
-  // Fixed space under each label (not a fixed row height) so two-line labels don't crowd the next tile.
-  subItem: { alignItems: 'center', gap: 5, paddingBottom: 23 },
+  // Rows grow with the full label, with space before the next tile.
+  subItem: { width: '100%', alignItems: 'center', gap: 7, paddingBottom: 20 },
   subTile: { width: TILE, height: TILE, borderRadius: 9, overflow: 'hidden' },
-  subLabel: { color: C.ink2, textAlign: 'center', paddingHorizontal: 4 },
+  subLabel: { width: '100%', color: C.ink2, textAlign: 'center', paddingHorizontal: 8 },
   marker: { position: 'absolute', right: 0, top: -2 },
 
   content: { flex: 1, backgroundColor: C.bg },
