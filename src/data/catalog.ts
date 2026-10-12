@@ -337,4 +337,6 @@ export const LOCAL = {
   brandSpice: require('@/assets/images/banners/brand-spice.jpg'),
   brandPantry: require('@/assets/images/banners/brand-pantry.jpg'),
   brandBakery: require('@/assets/images/banners/brand-bakery.jpg'),
+  freeDelivery: require('@/assets/images/home/free-delivery.png'),
+  brandDeals: require('@/assets/images/home/brand-deals.png'),
 };

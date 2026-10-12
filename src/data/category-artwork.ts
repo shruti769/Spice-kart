@@ -111,8 +111,27 @@ const backgrounds: Record<string, string> = {
   cosmetics: '#F8E5EF',
 };
 
-/** Give default grey tiles a category pastel; keep custom colors set in the admin. */
+/** Same hue and saturation, `amount` (0–1) less lightness: deepens the pastels a little. */
+function deepen(hex: string, amount = 0.06): string {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const l2 = Math.max(0, l - amount);
+  const c = (1 - Math.abs(2 * l2 - 1)) * s;
+  const x = c * (1 - Math.abs((h % 2) - 1));
+  const m = l2 - c / 2;
+  const [r2, g2, b2] = h < 1 ? [c, x, 0] : h < 2 ? [x, c, 0] : h < 3 ? [0, c, x] : h < 4 ? [0, x, c] : h < 5 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r2, g2, b2].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+/** Give default grey tiles a (slightly deepened) category pastel; keep custom colors set in the admin. */
 export function categoryBackground(id: string, color: string | null): string {
-  if (color && color.toUpperCase() !== '#F1F3EE') return color;
-  return backgrounds[id] ?? color ?? '#F1F3EE';
+  if (color && color.toUpperCase() !== '#F1F3EE') return deepen(color);
+  return deepen(backgrounds[id] ?? color ?? '#F1F3EE');
 }

@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ChevronDown, PersonIcon, SearchIcon } from '@/components/icons';
@@ -8,12 +9,13 @@ import { ProductCard } from '@/components/product-card';
 import { FeatureBanner, PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { findProduct, type Category, type Product } from '@/data/catalog';
+import { findProduct, LOCAL, type Category, type Product } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
-import { useBanners } from '@/lib/remote-banners';
-import { useCategories, useProducts } from '@/lib/remote-catalog';
+import { refreshBanners, useBanners } from '@/lib/remote-banners';
+import { refreshCatalog, useCategories, useProducts } from '@/lib/remote-catalog';
 import { useDeliverySettings } from '@/lib/remote-delivery';
 import { shortBalance } from '@/lib/remote-wallet';
+import { newSeed, shuffled } from '@/lib/shuffle';
 import { initialsOf, useAddress, useApp, usePref } from '@/store/app-store';
 
 
@@ -21,6 +23,7 @@ import { initialsOf, useAddress, useApp, usePref } from '@/store/app-store';
 
 const goCats = () => goTab('categories');
 const goOffers = () => router.push('/offers');
+const goShop = () => router.push('/shop');
 
 function DollarIcon() {
   return (
@@ -109,9 +112,21 @@ export default function HomeScreen() {
   const wallet = useApp((s) => s.wallet);
   const order = useApp((s) => s.order);
   const personalised = usePref('share', true);
-  const products = useProducts();
+  // Pull to refresh: refetch the catalogue and banners, then show products and categories in a new random order.
+  const [seed, setSeed] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshCatalog(), refreshBanners()]);
+    } finally {
+      setSeed(newSeed());
+      setRefreshing(false);
+    }
+  };
+  const products = shuffled(useProducts(), seed);
   const { etaMinutes: eta } = useDeliverySettings();
-  const categories = useCategories();
+  const categories = shuffled(useCategories(), seed);
   const topBanners = useBanners('home_top');
   const middleBanners = useBanners('home_middle');
   const featureBanners = useBanners('home_feature');
@@ -159,7 +174,12 @@ export default function HomeScreen() {
         </Tap>
       </Grad>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 175 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 175 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.forest} colors={[C.forest]} />}
+      >
         {categories.length > 0 && <CategoryRail categories={categories} />}
 
         {topBanners.length > 0 && (
@@ -188,12 +208,23 @@ export default function HomeScreen() {
           </>
         )}
 
+        <Tap onPress={goShop} style={styles.freeDelivery}>
+          <Image source={LOCAL.freeDelivery} contentFit="contain" accessibilityLabel="Free delivery on orders above $199" style={styles.freeDeliveryArt} />
+          <View style={styles.shopNow}>
+            <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>Shop now</Txt>
+          </View>
+        </Tap>
+
         {essentials.length > 0 && (
           <>
             <SectionHead title="Everyday Essentials" link={products.length > HOME_LIMIT ? 'See all' : undefined} onPress={goCats} />
             <Rail items={essentials} cardWidth={118} />
           </>
         )}
+
+        <Tap onPress={goShop} accessibilityLabel="Brand deals, 31 August to 6 September" style={styles.brandDeals}>
+          <Image source={LOCAL.brandDeals} contentFit="cover" style={{ width, aspectRatio: 538 / 585 }} />
+        </Tap>
 
         {featureBanners.length > 0 && (
           <View style={styles.featureBanners}>
@@ -248,6 +279,11 @@ const styles = StyleSheet.create({
 
   shelf: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8, paddingBottom: 12, gap: 8 },
   shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden' },
+
+  freeDelivery: { marginTop: 20, marginHorizontal: 16, height: 89, borderRadius: 10, backgroundColor: '#1B3C22', flexDirection: 'row', alignItems: 'center', paddingLeft: 12, paddingRight: 18, overflow: 'hidden' },
+  freeDeliveryArt: { width: 142, height: 61 },
+  shopNow: { marginLeft: 'auto', height: 30, paddingHorizontal: 16, borderRadius: 6, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
+  brandDeals: { marginTop: 32 },
 
   featureBanners: { marginTop: 28, paddingHorizontal: 16, gap: 12 },
 });

@@ -61,8 +61,19 @@ export function Grad({ preset, colors, locations, start, end, style, children }:
 }
 
 /**
+ * Admin uploads are full-size (often ~800 KB); for tiles, ask Supabase Storage for a resized copy
+ * (~20 KB) instead. Other URLs pass through unchanged.
+ */
+export function thumbUrl(url: string, width = 480) {
+  if (!url.includes('/storage/v1/object/public/')) return url;
+  const resized = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  return `${resized}${resized.includes('?') ? '&' : '?'}width=${width}&quality=75`;
+}
+
+/**
  * Product photo with the prototype's 5% over-crop
  * (`position:absolute;left:-5%;top:-5%;width:110%;height:110%;object-fit:cover`).
+ * Always a small tile, so Supabase photos load as resized thumbnails.
  */
 export function Photo({
   source,
@@ -76,7 +87,7 @@ export function Photo({
   /** Hide what the photo shows (sensitive items). */
   blur?: boolean;
 }) {
-  const src = typeof source === 'string' ? { uri: source } : source;
+  const src = typeof source === 'string' ? { uri: thumbUrl(source) } : source;
   return (
     <View style={[{ overflow: 'hidden', backgroundColor: '#F4F5F2' }, style]}>
       <Image
