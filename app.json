@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Spice Kart",
+    "name": "SpiceKart",
     "slug": "Spice-kart",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,9 +31,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#08351A",
-          "image": "./assets/images/brand/app-icon.png",
-          "imageWidth": 88
+          "backgroundColor": "#052E1B",
+          "image": "./assets/images/brand/splash-blank.png",
+          "imageWidth": 8
         }
       ],
       "expo-font",
@@ -41,8 +41,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Spice Kart uses your photos so you can set a profile picture or attach a photo to a support request.",
-          "cameraPermission": "Spice Kart uses the camera so you can take a profile picture or a photo of an item for support."
+          "photosPermission": "SpiceKart uses your photos so you can set a profile picture or attach a photo to a support request.",
+          "cameraPermission": "SpiceKart uses the camera so you can take a profile picture or a photo of an item for support."
         }
       ],
       "expo-sqlite",
@@ -56,7 +56,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Spice Kart uses your location to fill in your delivery address, check that we deliver to you, and record where an order was placed from."
+          "locationWhenInUsePermission": "SpiceKart uses your location to fill in your delivery address, check that we deliver to you, and record where an order was placed from."
         }
       ]
     ],

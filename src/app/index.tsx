@@ -60,7 +60,7 @@ export default function SplashScreen() {
   }));
 
   return (
-    <Pressable onPress={skip} style={{ flex: 1, backgroundColor: '#071B13' }} accessibilityRole="button" accessibilityLabel="Skip">
+    <Pressable onPress={skip} style={{ flex: 1, backgroundColor: '#052E1B' }} accessibilityRole="button" accessibilityLabel="Skip">
       <FocusStatusBar style="light" />
       <Backdrop />
 
