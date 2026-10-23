@@ -153,7 +153,7 @@ export default function ProfileScreen() {
 
   const restart = async () => {
     setLogoutOpen(false);
-    await logOut();
+    if (!(await logOut())) return;
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
   };

@@ -1,3 +1,4 @@
+import type { PhoneCountry } from '@/lib/phone';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -17,7 +18,7 @@ import {
 export type SortOption = 'Recommended' | 'Price: Low to High' | 'Price: High to Low' | 'Popular' | 'New';
 export type PriceFilter = 'u5' | '5to10' | 'o10' | null;
 export type PaymentKey = 'Card' | 'Apple Pay' | 'Google Pay' | 'PayID' | 'Spice Kart Money';
-export type User = { first: string; last: string; email: string; /** 9 digits after +61. */ mobile: string; dob: string; /** Profile photo URL (Supabase Storage). */ avatar?: string };
+export type User = { first: string; last: string; email: string; /** International mobile; legacy AU profiles may contain nine local digits. */ mobile: string; dob: string; /** Profile photo URL (Supabase Storage). */ avatar?: string };
 export type SavedCard = { brand: 'VISA' | 'MASTERCARD' | 'AMEX'; last4: string; /** MM/YY */ exp: string };
 /** The last order placed on this device (`id` = Supabase `orders.id`, for tracking). */
 export type PlacedOrder = { id?: string; no: string; itemIds: string[]; qty: Record<string, number>; total: string };
@@ -31,6 +32,7 @@ type State = {
   signedIn: boolean;
   cart: Record<string, number>;
   phone: string;
+  phoneCountry: PhoneCountry;
   addr: number;
   /** Saved delivery addresses; `addr` indexes into this list. */
   addresses: Address[];
@@ -107,6 +109,7 @@ const initial: State = {
   signedIn: false,
   cart: {},
   phone: '',
+  phoneCountry: 'AU',
   addr: 0,
   addresses: ADDRESSES.map((a) => ({ ...a })),
   coupon: null,
@@ -270,9 +273,11 @@ export const useApp = create<State & Actions>()(
       }
       return s as State & Actions;
     },
+    // A persisted UI flag must never restore an unverified account.
+    merge: (saved, current) => ({ ...current, ...(saved as Partial<State>), signedIn: false }),
     partialize: (s) => ({
-      signedIn: s.signedIn,
       phone: s.phone,
+      phoneCountry: s.phoneCountry,
       user: s.user,
       addresses: s.addresses,
       addr: s.addr,

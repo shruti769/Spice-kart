@@ -1,3 +1,4 @@
+import { phoneAuthError, signOutPhone } from '@/lib/firebase-auth';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import type { NotificationResponse } from 'expo-notifications';
@@ -223,7 +224,14 @@ export async function deleteMyAccount(): Promise<string | null> {
 /** Log out: stop pushes to this phone first (needs the session), then forget the account. */
 export async function logOut() {
   await Promise.race([unregisterPush(), new Promise((r) => setTimeout(r, 3000))]);
+  try {
+    await signOutPhone();
+  } catch (error) {
+    useApp.getState().flash(phoneAuthError(error));
+    return false;
+  }
   useApp.getState().restart();
+  return true;
 }
 
 let started = false;

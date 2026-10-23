@@ -9,7 +9,15 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/brand/app-icon.png",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.komal92.spicekart",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +28,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.komal92.spicekart"
+      "package": "com.komal92.spicekart",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -57,6 +66,16 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "SpiceKart uses your location to fill in your delivery address, check that we deliver to you, and record where an order was placed from."
+        }
+      ],
+      "@react-native-firebase/app/app.plugin.js",
+      "@react-native-firebase/auth/app.plugin.js",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
         }
       ]
     ],

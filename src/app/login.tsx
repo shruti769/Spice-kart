@@ -1,13 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { AuthHero, SHEET_OVERLAP } from '@/components/auth/auth-hero';
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
 import { Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { phoneAuthError, sendPhoneOtp } from '@/lib/firebase-auth';
+import { cleanMobile, isValidMobile, PHONE_COUNTRIES, toInternationalPhone, type PhoneCountry } from '@/lib/phone';
 import { useApp } from '@/store/app-store';
 
 function AppleIcon() {
@@ -29,28 +31,11 @@ function GoogleIcon() {
   );
 }
 
-/**
- * Demo sign-in: any 9-digit number after +61 is accepted. Real verification (e.g. the
- * Australian "starts with 4" rule and the SMS check) belongs to the backend integration.
- */
-const isValidMobile = (digits: string) => /^\d{9}$/.test(digits);
-
 /** iOS number/phone pads have no return key, so iOS adds a floating "Done" bar; this keyboard has its own return key. */
 const NUMBER_KEYBOARD = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'phone-pad';
 
-/** Keep digits only, drop a leading 0 ("0412…" → "412…") and cap at 9 digits. */
-const cleanMobile = (value: string) => value.replace(/\D/g, '').replace(/^0/, '').slice(0, 9);
-
 /** "412908344" → "412 908 344". */
 const formatMobile = (digits: string) => digits.replace(/(\d{3})(?=\d)/g, '$1 ');
-
-/** Social sign-in skips the SMS step and goes straight to the address picker. */
-function socialSignIn(provider: string) {
-  useApp.getState().set({ signedIn: true });
-  useApp.getState().flash('Signed in with ' + provider);
-  if (router.canDismiss()) router.dismissAll();
-  router.replace('/location');
-}
 
 // Use vector artwork so the flag never depends on the text font's emoji support.
 function AustraliaFlag() {
@@ -66,22 +51,50 @@ function AustraliaFlag() {
   );
 }
 
+function IndiaFlag() {
+  return (
+    <Svg width={21} height={15} viewBox="0 0 42 30">
+      <Rect width={42} height={30} rx={3} fill="#fff" />
+      <Path d="M0 0h42v10H0z" fill="#FF9933" />
+      <Path d="M0 20h42v10H0z" fill="#138808" />
+      <Circle cx={21} cy={15} r={4} stroke="#000080" strokeWidth={1} fill="none" />
+      <Path d="M21 11v8m-4-4h8m-7-3 6 6m0-6-6 6" stroke="#000080" strokeWidth={0.6} />
+    </Svg>
+  );
+}
+
 export default function LoginScreen() {
   const { insets } = usePad();
   const phone = useApp((s) => s.phone);
+  const country = useApp((s) => s.phoneCountry);
+  const [countriesOpen, setCountriesOpen] = useState(false);
+  const selectedCountry = PHONE_COUNTRIES[country];
   const set = useApp((s) => s.set);
   const flash = useApp((s) => s.flash);
   const [error, setError] = useState(false);
-  const digits = cleanMobile(phone);
+  const [sending, setSending] = useState(false);
+  const requestBusy = useRef(false);
+  const digits = cleanMobile(phone, country);
 
-  const goOtp = () => {
-    if (!isValidMobile(digits)) {
+  const goOtp = async () => {
+    if (requestBusy.current) return;
+    if (!isValidMobile(digits, country)) {
       setError(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
-    set({ phone: digits });
-    router.push('/otp');
+    requestBusy.current = true;
+    setSending(true);
+    try {
+      await sendPhoneOtp(toInternationalPhone(digits, country));
+      set({ phone: digits });
+      router.push('/otp');
+    } catch (error) {
+      flash(phoneAuthError(error));
+    } finally {
+      requestBusy.current = false;
+      setSending(false);
+    }
   };
 
   return (
@@ -97,19 +110,20 @@ export default function LoginScreen() {
           </View>
 
           <View style={[styles.phoneField, error && styles.phoneFieldError]}>
-            <Tap accessibilityRole="button" accessibilityLabel="Country: Australia, plus 61" onPress={() => flash('Currently available for Australian mobile numbers (+61).')} style={styles.country}>
-              <AustraliaFlag />
+            <Tap accessibilityRole="button" accessibilityLabel={`Country: ${selectedCountry.name}, ${selectedCountry.dialCode}`} accessibilityState={{ expanded: countriesOpen }} disabled={sending} onPress={() => setCountriesOpen((open) => !open)} style={styles.country}>
+              {country === 'IN' ? <IndiaFlag /> : <AustraliaFlag />}
               <Svg width={8} height={5} viewBox="0 0 8 5"><Path d="M0 0h8L4 5z" fill="#111" /></Svg>
             </Tap>
             <View style={styles.fieldDivider} />
-            <Txt style={f(600, 14, 1.2)}>+61</Txt>
+            <Txt style={f(600, 14, 1.2)}>{selectedCountry.dialCode}</Txt>
             <TextInput
               value={formatMobile(digits)}
               onChangeText={(value) => {
                 setError(false);
-                set({ phone: cleanMobile(value) });
+                set({ phone: cleanMobile(value, country) });
               }}
-              maxLength={11}
+              maxLength={18}
+              editable={!sending}
               placeholder="Enter mobile number"
               accessibilityLabel="Mobile number"
               placeholderTextColor={C.muted}
@@ -124,10 +138,27 @@ export default function LoginScreen() {
             />
           </View>
 
-          {error && <Txt style={[f(500, 12, 1.3), styles.error]}>Enter a 9-digit mobile number</Txt>}
+          {countriesOpen && (
+            <View style={styles.countryChoices}>
+              {(Object.keys(PHONE_COUNTRIES) as PhoneCountry[]).map((option) => (
+                <Tap key={option} accessibilityRole="button" accessibilityState={{ selected: country === option }} disabled={sending}
+                  onPress={() => {
+                    if (requestBusy.current) return;
+                    set({ phoneCountry: option, phone: option === country ? phone : '' });
+                    setError(false);
+                    setCountriesOpen(false);
+                  }} style={styles.countryChoice}>
+                  {option === 'IN' ? <IndiaFlag /> : <AustraliaFlag />}
+                  <Txt style={f(600, 13, 1.2)}>{PHONE_COUNTRIES[option].name} ({PHONE_COUNTRIES[option].dialCode})</Txt>
+                </Tap>
+              ))}
+            </View>
+          )}
 
-          <Tap accessibilityRole="button" onPress={goOtp} pressedStyle={{ backgroundColor: C.limeHover }} style={[styles.continue, !isValidMobile(digits) && styles.continueIdle]}>
-            <Txt style={[f(700, 14, 1.2), { color: '#102A08' }]}>Continue</Txt>
+          {error && <Txt style={[f(500, 12, 1.3), styles.error]}>{country === 'IN' ? 'Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9' : 'Enter a 9-digit Australian mobile number starting with 4'}</Txt>}
+
+          <Tap accessibilityRole="button" disabled={sending} onPress={goOtp} pressedStyle={{ backgroundColor: C.limeHover }} style={[styles.continue, !isValidMobile(digits, country) && styles.continueIdle]}>
+            <Txt style={[f(700, 14, 1.2), { color: '#102A08' }]}>{sending ? 'Sending code…' : 'Continue'}</Txt>
           </Tap>
 
           <View style={styles.separator}>
@@ -138,17 +169,17 @@ export default function LoginScreen() {
 
           <View style={styles.socialRow}>
             {Platform.OS === 'ios' && (
-              <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => socialSignIn('Apple')} style={styles.social}>
+              <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => flash('Apple sign-in is not available yet. Please use your phone number.')} style={styles.social}>
                 <AppleIcon /><Txt style={f(600, 13, 1.2)}>Apple</Txt>
               </Tap>
             )}
-            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => socialSignIn('Google')} style={styles.social}>
+            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => flash('Google sign-in is not available yet. Please use your phone number.')} style={styles.social}>
               <GoogleIcon /><Txt style={f(600, 13, 1.2)}>{Platform.OS === 'ios' ? 'Google' : 'Continue with Google'}</Txt>
             </Tap>
           </View>
 
           <Txt style={[f(400, 8, 1.7), styles.legal]}>
-            By continuing, you agree to Spice Kart&apos;s{' '}
+            By continuing, you consent to SMS verification. Google receives and stores your phone number for abuse prevention. You agree to Spice Kart&apos;s{' '}
             <Txt accessibilityRole="link" onPress={() => router.push('/terms')} style={styles.legal}>Terms of Service</Txt>
             {' & '}
             <Txt accessibilityRole="link" onPress={() => router.push({ pathname: '/policy', params: { id: 'privacy' } })} style={styles.legal}>Privacy Policy.</Txt>
@@ -166,6 +197,8 @@ const styles = StyleSheet.create({
   heading: { gap: 6, paddingHorizontal: 6, marginBottom: 24 },
   subtitle: { color: C.muted },
   phoneField: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 54, paddingHorizontal: 16, backgroundColor: C.field, borderWidth: 1, borderColor: C.border, borderRadius: 13 },
+  countryChoices: { marginTop: 8, borderWidth: 1, borderColor: C.border, borderRadius: 12, overflow: 'hidden' },
+  countryChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   country: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48 },
   fieldDivider: { width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 3 },
   input: { flex: 1, minWidth: 0, height: 52, padding: 0, lineHeight: undefined, color: C.ink },

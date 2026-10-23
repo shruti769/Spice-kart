@@ -142,7 +142,7 @@ export default function AccountScreen() {
   const sensitive = usePref('sens', true);
 
   const restart = async () => {
-    await logOut();
+    if (!(await logOut())) return;
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');
   };

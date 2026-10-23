@@ -14,6 +14,7 @@ import Animated, {
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
 import { Txt, usePad } from '@/components/ui/primitives';
 import { f } from '@/constants/theme';
+import { ensureBackendSession, restorePhoneSession } from '@/lib/firebase-auth';
 import { LOCAL } from '@/data/catalog';
 import { useApp, whenHydrated } from '@/store/app-store';
 
@@ -45,7 +46,11 @@ export default function SplashScreen() {
   const skip = useCallback(() => {
     if (done.current) return;
     done.current = true;
-    whenHydrated().then(() => router.replace(useApp.getState().signedIn ? '/home' : '/login'));
+    Promise.all([whenHydrated(), restorePhoneSession()]).then(async ([, verified]) => {
+      const signedIn = verified && await ensureBackendSession().then(() => true, () => false);
+      useApp.getState().set({ signedIn });
+      router.replace(signedIn ? '/home' : '/login');
+    });
   }, []);
 
   useEffect(() => {

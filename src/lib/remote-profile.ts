@@ -1,12 +1,12 @@
 import { File } from 'expo-file-system';
 
+import { ensureBackendSession } from '@/lib/firebase-auth';
+import { normalizeProfileMobile, toInternationalPhone } from '@/lib/phone';
 import { singleFlight } from '@/lib/live-changes';
 import { isSupabaseConfigured, supabase, supabaseKey, supabaseUrl } from '@/lib/supabase';
 import { useApp, type User } from '@/store/app-store';
 
-// Personal details live in `public.profiles` (one row per Supabase Auth user) and the profile
-// photo in the public `avatars` bucket under `<uid>/`. Until SMS OTP is wired to Supabase Auth,
-// each signed-in device gets an anonymous Supabase user.
+// Profiles use the stable Supabase UUID linked to the verified Firebase phone identity.
 
 const COLUMNS = 'first_name, last_name, email, mobile, dob, avatar_url';
 const BUCKET = 'avatars';
@@ -55,22 +55,9 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, step: string): Promise<T>
   });
 }
 
-let signingIn: Promise<string> | null = null;
-
-/** The Supabase user id for this device, signing in anonymously the first time. */
+/** Require Firebase verification; anonymous device accounts cannot access customer data. */
 export function ensureUserId(): Promise<string> {
-  signingIn ??= (async () => {
-    trace('get session');
-    const { data } = await withTimeout(supabase.auth.getSession(), 10_000, 'Getting the session');
-    if (data.session) return data.session.user.id;
-    trace('anonymous sign-in');
-    const res = await withTimeout(supabase.auth.signInAnonymously(), 15_000, 'Anonymous sign-in');
-    if (res.error || !res.data.user) throw res.error ?? new Error('Anonymous sign-in failed');
-    return res.data.user.id;
-  })().finally(() => {
-    signingIn = null;
-  });
-  return signingIn;
+  return ensureBackendSession();
 }
 
 /** Storage path of a photo in our bucket, from its public URL. */
@@ -181,9 +168,9 @@ const loadProfile = singleFlight(async () => {
       state.set({ user: fromRow(data as Row) });
       return;
     }
-    const mobile = state.phone || state.user.mobile;
+    const mobile = normalizeProfileMobile(state.user.mobile) || toInternationalPhone(state.phone, state.phoneCountry);
     // ignoreDuplicates: never overwrite details saved meanwhile (e.g. from the sign-up step).
-    const res = await supabase.from('profiles').upsert({ id: uid, mobile: /^\d{9}$/.test(mobile) ? mobile : '' }, { ignoreDuplicates: true });
+    const res = await supabase.from('profiles').upsert({ id: uid, mobile: normalizeProfileMobile(mobile) }, { ignoreDuplicates: true });
     if (res.error) throw res.error;
   } catch (e) {
     if (__DEV__) console.warn('Could not load profile:', (e as Error).message);

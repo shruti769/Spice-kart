@@ -1,0 +1,3 @@
+# Firebase JWTs are verified cryptographically inside this function.
+[functions.firebase-session]
+verify_jwt = false

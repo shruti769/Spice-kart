@@ -1,3 +1,4 @@
+import { normalizeProfileMobile, toInternationalPhone } from '@/lib/phone';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -198,13 +199,14 @@ export default function PersonalScreen() {
   const flash = useApp((s) => s.flash);
   const user = useApp((s) => s.user);
   const phone = useApp((s) => s.phone);
+  const country = useApp((s) => s.phoneCountry);
   const setup = useLocalSearchParams<{ setup?: string }>().setup === '1';
   const [focus, setFocus] = useState<FieldKey | null>(null);
   const [initial] = useState(() => ({
     first: setup ? '' : user.first,
     last: setup ? '' : user.last,
     email: user.email,
-    mobile: '+61 ' + (setup && phone ? phone : user.mobile).replace(/(\d{3})(?=\d)/g, '$1 '),
+    mobile: setup && phone ? toInternationalPhone(phone, country) : normalizeProfileMobile(user.mobile),
     dob: setup ? '' : user.dob,
   }));
   const [v, setV] = useState(initial);
@@ -217,8 +219,8 @@ export default function PersonalScreen() {
   const upd = (k: FieldKey) => (t: string) => setV((s) => ({ ...s, [k]: t }));
   const dirty = (Object.keys(v) as FieldKey[]).some((k) => v[k] !== initial[k]) || avatar !== (setup ? undefined : user.avatar);
 
-  const local = v.mobile.replace(/\D/g, '').replace(/^61/, '').replace(/^0/, '');
-  const mobileErr = !/^\d{9}$/.test(local) ? 'Enter a 9-digit mobile number' : undefined;
+  const local = normalizeProfileMobile(v.mobile);
+  const mobileErr = !local ? 'Enter a valid +61 Australian or +91 Indian mobile number' : undefined;
   // Email is optional (not asked at sign-up); only check it once the user types one.
   const emailErr = v.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim()) ? 'Enter a valid email address' : undefined;
   const nameErr = !v.first.trim() ? 'Enter your first name' : !setup && !v.last.trim() ? 'Enter your first and last name' : undefined;
