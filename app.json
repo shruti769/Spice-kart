@@ -82,6 +82,13 @@
             "useFrameworks": "dynamic"
           }
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.komal92.spicekart",
+          "enableGooglePay": true
+        }
       ]
     ],
     "experiments": {

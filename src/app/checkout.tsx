@@ -16,6 +16,7 @@ import { getDeviceFix, type DeviceFix } from '@/lib/location';
 import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
 import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
 import { refreshWallet } from '@/lib/remote-wallet';
+import { cancelUnpaidOrder, isStripeMethod, payForOrder, stripePublishableKey } from '@/lib/stripe-payment';
 import { brandName, useAddress, useApp, useDefaultCard, useTotals, type PaymentKey } from '@/store/app-store';
 
 const LIME = C.lime;
@@ -160,6 +161,10 @@ export default function CheckoutScreen() {
       s.flash(`Not enough Spice Kart Money (${money(s.wallet ?? 0)}) · add money or choose another payment method`);
       return;
     }
+    if (isStripeMethod(s.payment) && !stripePublishableKey) {
+      s.flash(`${s.payment} isn’t available right now · choose another payment method`);
+      return;
+    }
     if (s.slot === 'ASAP' && !config.open) {
       s.set({ slot: null, scheduling: true });
       s.flash('We’re closed for express delivery right now · schedule a delivery instead');
@@ -195,6 +200,16 @@ export default function CheckoutScreen() {
         coupon: s.coupon,
         device: device.current,
       });
+      // Card / Apple Pay / Google Pay: pay in Stripe's sheet. Not paid → the order is cancelled
+      // (stock goes back) and the cart stays, so they can try again.
+      if (isStripeMethod(s.payment)) {
+        const pay = await payForOrder(placed.id);
+        if (pay.result !== 'paid' && (await cancelUnpaidOrder(placed.id))) {
+          refreshCatalog();
+          s.flash(pay.result === 'cancelled' ? 'Payment cancelled · your order wasn’t placed' : (pay.message || 'Payment didn’t go through') + ' · please try again');
+          return;
+        }
+      }
       s.placeOrder(placed);
       if (s.payment === 'Spice Kart Money') refreshWallet();
       resetTo('/order-confirmed');

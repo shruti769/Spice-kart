@@ -11,9 +11,10 @@ import Animated, {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { BottomNav } from '@/components/bottom-nav';
+import { BackIcon } from '@/components/icons';
 import { Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { goTab } from '@/lib/nav';
+import { goBack, goTab } from '@/lib/nav';
 import { useTrackedOrder, type OrderStatus, type TrackedOrder } from '@/lib/remote-orders';
 import { useStore } from '@/lib/remote-store';
 import { useApp } from '@/store/app-store';
@@ -120,10 +121,15 @@ export default function TrackScreen() {
   return (
     <Screen style={{ backgroundColor: '#fff' }}>
       <View style={[styles.header, { paddingTop: pad.top(53) }]}>
-        <Txt numberOfLines={1} style={f(700, 17, 1.2)}>Track order</Txt>
-        <Txt numberOfLines={1} style={[f(400, 12.5, 1.25), { color: C.muted }]}>
-          {order ? 'Order #' + order.no : loading ? 'Loading…' : 'No active order'}
-        </Txt>
+        <Tap accessibilityLabel="Back" onPress={goBack} hitSlop={8} style={styles.back}>
+          <BackIcon size={18} />
+        </Tap>
+        <View style={{ gap: 2, flexShrink: 1 }}>
+          <Txt numberOfLines={1} style={f(700, 17, 1.2)}>Track order</Txt>
+          <Txt numberOfLines={1} style={[f(400, 12.5, 1.25), { color: C.muted }]}>
+            {order ? 'Order #' + order.no : loading ? 'Loading…' : 'No active order'}
+          </Txt>
+        </View>
       </View>
       {order ? (
         <Tracking order={order} />
@@ -265,7 +271,8 @@ function Tracking({ order }: { order: TrackedOrder }) {
 const DOT = 19;
 
 const styles = StyleSheet.create({
-  header: { marginHorizontal: 17, paddingLeft: 14, paddingBottom: 8, gap: 2, borderBottomWidth: 1, borderBottomColor: C.divider },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 17, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: C.divider },
+  back: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 14, paddingHorizontal: 17, paddingBottom: 120, gap: 10 },
 
   map: { height: 200, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E3E7DC', backgroundColor: '#EEF1E9' },

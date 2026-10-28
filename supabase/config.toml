@@ -1,3 +1,7 @@
 # Firebase JWTs are verified cryptographically inside this function.
 [functions.firebase-session]
 verify_jwt = false
+
+# Stripe signs its webhook calls; there is no Supabase session to check.
+[functions.stripe-webhook]
+verify_jwt = false

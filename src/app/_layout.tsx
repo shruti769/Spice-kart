@@ -8,10 +8,11 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';  
 
 import { Toast } from '@/components/overlays';
 import { PhotoSourceSheet } from '@/components/photo-source-sheet';
@@ -25,6 +26,7 @@ import { startRemoteOrders } from '@/lib/remote-orders';
 import { startRemotePostcodes } from '@/lib/remote-postcodes';
 import { startRemoteConfig } from '@/lib/remote-config';
 import { useLastNotificationResponse } from '@/lib/notifications';
+import { stripePublishableKey } from '@/lib/stripe-payment';
 import { startRemoteStores } from '@/lib/remote-store';
 import { handleNotificationTap, startRemotePrivacy } from '@/lib/remote-privacy';
 import { startRemoteProfile } from '@/lib/remote-profile';
@@ -79,25 +81,27 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: C.bg },
-            animation: 'ios_from_right',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: true,
-          }}>
-          <Stack.Screen name="index" options={{ animation: 'none' }} />
-          <Stack.Screen name="login" options={{ animation: 'fade' }} />
-          <Stack.Screen name="location" options={{ animation: 'fade' }} />
-          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-          <Stack.Screen name="order-confirmed" options={{ animation: 'fade_from_bottom', gestureEnabled: false }} />
-          <Stack.Screen name="money/success" options={{ animation: 'fade_from_bottom', gestureEnabled: false }} />
-          <Stack.Screen name="money/failed" options={{ animation: 'fade_from_bottom' }} />
-        </Stack>
-        <Toast />
-        <PhotoSourceSheet />
+        <StripeProvider publishableKey={stripePublishableKey} merchantIdentifier="merchant.com.komal92.spicekart" urlScheme="spicekart">
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: C.bg },
+              animation: 'ios_from_right',
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+            }}>
+            <Stack.Screen name="index" options={{ animation: 'none' }} />
+            <Stack.Screen name="login" options={{ animation: 'fade' }} />
+            <Stack.Screen name="location" options={{ animation: 'fade' }} />
+            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="order-confirmed" options={{ animation: 'fade_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="money/success" options={{ animation: 'fade_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="money/failed" options={{ animation: 'fade_from_bottom' }} />
+          </Stack>
+          <Toast />
+          <PhotoSourceSheet />
+        </StripeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
