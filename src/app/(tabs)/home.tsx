@@ -137,7 +137,7 @@ export default function HomeScreen() {
   const essentials = products.slice(0, HOME_LIMIT);
   const deals = products.filter((p) => p.orig > p.price).slice(0, 4);
 
-  const addrLabel = address.label + ' • ' + address.area;
+  const addrLabel = address ? address.label + ' • ' + address.area : 'Add delivery address';
   const walletStr = shortBalance(wallet ?? 0);
 
   return (

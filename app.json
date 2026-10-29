@@ -11,6 +11,7 @@
       "icon": "./assets/images/brand/app-icon.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.komal92.spicekart",
+      "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "UIBackgroundModes": [
@@ -89,7 +90,8 @@
           "merchantIdentifier": "merchant.com.komal92.spicekart",
           "enableGooglePay": true
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,

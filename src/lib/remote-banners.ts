@@ -96,7 +96,7 @@ export function useBanners(placement: BannerPlacement, categoryId?: string) {
   const banners = useBannerStore((s) => s.banners);
   const isNew = useApp((s) => !s.order);
   const address = useAddress();
-  const inVic = /\bVIC\b|Victoria|Melbourne/i.test(address.area + ' ' + address.line);
+  const inVic = !!address && /\bVIC\b|Victoria|Melbourne/i.test(address.area + ' ' + address.line);
   return banners.filter(
     (b) =>
       b.placement === placement &&

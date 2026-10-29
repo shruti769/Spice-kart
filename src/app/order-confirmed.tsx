@@ -79,7 +79,7 @@ export default function OrderConfirmedScreen() {
           <InfoRow label="Order number" value={order ? order.no : 'Order #SK10482'} valueStyle={null} />
           <InfoRow label="Arriving" value={arriving} valueStyle={{ color: C.green }} />
           {/* Break before "VIC 3000" so it reads as two lines, as in the design. */}
-          <InfoRow label="Delivering to" value={addr.line.replace(/ (?=[A-Z]{2,3} \d{4}$)/, '\n')} valueStyle={f(500, 13.5, 1.22)} />
+          <InfoRow label="Delivering to" value={(addr?.line ?? '—').replace(/ (?=[A-Z]{2,3} \d{4}$)/, '\n')} valueStyle={f(500, 13.5, 1.22)} />
           <InfoRow label={'Paid with ' + payment} value={order ? order.total : money(t.total)} valueStyle={f(700, 14, 1.22)} last />
         </View>
 

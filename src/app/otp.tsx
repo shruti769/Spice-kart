@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
@@ -8,26 +7,13 @@ import { AuthHero, SHEET_OVERLAP } from '@/components/auth/auth-hero';
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
 import { Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { ensureBackendSession, phoneAuthError, sendPhoneOtp, verifyPhoneOtp, watchVerifiedPhone } from '@/lib/firebase-auth';
+import { phoneAuthError, sendPhoneOtp, verifyPhoneOtp, watchVerifiedPhone } from '@/lib/firebase-auth';
 import { toInternationalPhone } from '@/lib/phone';
+import { completeSignIn as completePhoneLogin } from '@/lib/sign-in';
 import { useApp } from '@/store/app-store';
 
 const LENGTH = 6;
 const RESEND_SECONDS = 30;
-
-/** After verifying, collect the user's name and date of birth (then the address picker). */
-function finishAuth() {
-  if (router.canDismiss()) router.dismissAll();
-  router.replace({ pathname: '/profile/personal', params: { setup: '1' } });
-}
-
-async function completePhoneLogin(phone: string) {
-  await ensureBackendSession();
-  const state = useApp.getState();
-  if (state.signedIn) return;
-  state.set({ signedIn: true, user: { ...state.user, mobile: phone } });
-  finishAuth();
-}
 
 /** Blinking caret shown in the box that receives the next digit. */
 function Caret() {

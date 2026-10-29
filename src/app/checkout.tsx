@@ -184,6 +184,11 @@ export default function CheckoutScreen() {
       }
     }
     const address = s.addresses[s.addr] ?? s.addresses[0];
+    if (!address) {
+      s.flash('Add a delivery address');
+      router.push('/addresses/new');
+      return;
+    }
     const postcode = postcodeOf(address.line);
     if (!deliversTo(postcode)) {
       s.flash(`Sorry, we don’t deliver to ${postcode || 'this address'} yet · change the address`);
@@ -234,8 +239,8 @@ export default function CheckoutScreen() {
         <Animated.View layout={layout} style={[styles.card, { gap: 10 }]}>
           <View style={styles.row}>
             <Txt numberOfLines={1} style={f(700, 14, 1.25)}>Delivery address</Txt>
-            <Tap onPress={() => router.push('/location')} hitSlop={8} style={{ marginLeft: 'auto', marginRight: 7 }}>
-              <Txt style={[f(600, 14, 1.25), { color: C.green }]}>Change</Txt>
+            <Tap onPress={() => router.push(addr ? '/location' : '/addresses/new')} hitSlop={8} style={{ marginLeft: 'auto', marginRight: 7 }}>
+              <Txt style={[f(600, 14, 1.25), { color: C.green }]}>{addr ? 'Change' : 'Add'}</Txt>
             </Tap>
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -243,10 +248,14 @@ export default function CheckoutScreen() {
               <Path d="M10 20s7-6.1 7-11.1A7 7 0 003 8.9C3 13.9 10 20 10 20z" stroke="#6E6E68" strokeWidth={1.7} />
               <Circle cx={10} cy={9} r={2.3} fill={LIME} />
             </Svg>
-            <View style={{ gap: 4, flexShrink: 1 }}>
-              <Txt numberOfLines={1} style={f(600, 14, 1.25)}>{addr.label + ' • ' + addr.area}</Txt>
-              <Txt style={[f(400, 13, 1.35), { color: C.muted }]}>{addr.line}</Txt>
-            </View>
+            {addr ? (
+              <View style={{ gap: 4, flexShrink: 1 }}>
+                <Txt numberOfLines={1} style={f(600, 14, 1.25)}>{addr.label + ' • ' + addr.area}</Txt>
+                <Txt style={[f(400, 13, 1.35), { color: C.muted }]}>{addr.line}</Txt>
+              </View>
+            ) : (
+              <Txt style={[f(400, 13, 1.35), { color: C.muted, flexShrink: 1 }]}>Add the address we should deliver to</Txt>
+            )}
           </View>
         </Animated.View>
 

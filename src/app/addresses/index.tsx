@@ -8,6 +8,7 @@ import { PinIcon, SearchIcon } from '@/components/icons';
 import { BottomSheet } from '@/components/overlays';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { addAddressHere } from '@/lib/location';
 import { useApp } from '@/store/app-store';
 
 
@@ -57,18 +58,20 @@ export default function AddressesScreen() {
     useApp.getState().set({ addr: index });
     flash('Delivering to ' + addresses[index].label);
   };
-  const useCurrent = () => {
-    const home = addresses.findIndex((a) => a.tag === 'H');
-    useApp.getState().set({ addr: Math.max(0, home) });
-    flash('Location found · delivering to ' + addresses[Math.max(0, home)].label);
+  const [locating, setLocating] = useState(false);
+  const useCurrent = async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      await addAddressHere();
+    } finally {
+      setLocating(false);
+    }
   };
   const confirmRemove = () => {
     if (removing === null) return;
-    if (addresses.length <= 1) flash('Keep at least one address');
-    else {
-      useApp.getState().removeAddress(removing);
-      flash('Address removed');
-    }
+    useApp.getState().removeAddress(removing);
+    flash('Address removed');
     close();
   };
 
@@ -99,7 +102,7 @@ export default function AddressesScreen() {
           <PinIcon size={19} color={C.greenOk} />
           <View style={styles.cardText}>
             <Txt numberOfLines={1} style={[f(600, 14, 1.3), { color: C.greenOk }]}>
-              Use my current location
+              {locating ? 'Finding your location…' : 'Use my current location'}
             </Txt>
             <Txt numberOfLines={1} style={[f(400, 12, 1.3), { color: C.muted }]}>
               Enable location for faster delivery

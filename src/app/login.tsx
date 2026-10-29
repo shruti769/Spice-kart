@@ -8,8 +8,17 @@ import { AuthHero, SHEET_OVERLAP } from '@/components/auth/auth-hero';
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
 import { Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { phoneAuthError, sendPhoneOtp } from '@/lib/firebase-auth';
+import {
+  phoneAuthError,
+  sendPhoneOtp,
+  signInWithApple,
+  signInWithGoogle,
+  socialAuthError,
+  verifiedPhone,
+  type SocialProvider,
+} from '@/lib/firebase-auth';
 import { cleanMobile, isValidMobile, PHONE_COUNTRIES, toInternationalPhone, type PhoneCountry } from '@/lib/phone';
+import { completeSignIn } from '@/lib/sign-in';
 import { useApp } from '@/store/app-store';
 
 function AppleIcon() {
@@ -97,6 +106,24 @@ export default function LoginScreen() {
     }
   };
 
+  // Google / Apple: straight in when that account already has a verified mobile; otherwise the
+  // customer verifies their mobile here first and the sign-in is linked after the OTP.
+  const social = async (provider: SocialProvider) => {
+    if (requestBusy.current) return;
+    requestBusy.current = true;
+    setSending(true);
+    try {
+      const result = await (provider === 'Apple' ? signInWithApple() : signInWithGoogle());
+      if (result === 'signed_in') await completeSignIn(await verifiedPhone());
+      else if (result === 'needs_phone') flash(`Verify your mobile number to finish signing in with ${provider}`);
+    } catch (error) {
+      flash(socialAuthError(provider, error));
+    } finally {
+      requestBusy.current = false;
+      setSending(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <FocusStatusBar style="light" />
@@ -169,11 +196,11 @@ export default function LoginScreen() {
 
           <View style={styles.socialRow}>
             {Platform.OS === 'ios' && (
-              <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => flash('Apple sign-in is not available yet. Please use your phone number.')} style={styles.social}>
+              <Tap accessibilityRole="button" accessibilityLabel="Continue with Apple" onPress={() => social('Apple')} style={styles.social}>
                 <AppleIcon /><Txt style={f(600, 13, 1.2)}>Apple</Txt>
               </Tap>
             )}
-            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => flash('Google sign-in is not available yet. Please use your phone number.')} style={styles.social}>
+            <Tap accessibilityRole="button" accessibilityLabel="Continue with Google" onPress={() => social('Google')} style={styles.social}>
               <GoogleIcon /><Txt style={f(600, 13, 1.2)}>{Platform.OS === 'ios' ? 'Google' : 'Continue with Google'}</Txt>
             </Tap>
           </View>

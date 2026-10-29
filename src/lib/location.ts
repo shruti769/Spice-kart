@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import { Alert, Linking } from 'react-native';
 
 import { useApp } from '@/store/app-store';
@@ -115,4 +116,16 @@ export function explainNoFix(r: Extract<FixResult, { ok: false }>) {
   } else {
     Alert.alert('Couldn’t find your location', 'Please try again outside or near a window, or enter your address yourself.');
   }
+}
+
+/** GPS fix → street address → the Add address form, prefilled for the user to check. */
+export async function addAddressHere(from?: 'location') {
+  const r = await getDeviceFix({ ask: true });
+  if (!r.ok) return explainNoFix(r);
+  const found = await addressAt(r.fix);
+  if (!found) useApp.getState().flash('Couldn’t read the address here · please fill it in');
+  router.push({
+    pathname: '/addresses/new',
+    params: { ...(from ? { from } : {}), lat: String(r.fix.lat), lng: String(r.fix.lng), ...(found ?? {}) },
+  });
 }

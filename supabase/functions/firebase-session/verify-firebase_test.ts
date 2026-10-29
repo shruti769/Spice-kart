@@ -33,6 +33,17 @@ for (const [name, overrides] of Object.entries({
     throw new Error(`Accepted ${name}`);
   });
 }
+for (const provider of ['google.com', 'apple.com']) {
+  Deno.test(`accepts ${provider} sign-in on an account with a verified phone`, async () => {
+    const result = await verifyFirebasePhone(await token({ firebase: { sign_in_provider: provider } }), project, keys);
+    if (result.phone !== '+61412345678') throw new Error('Wrong identity');
+  });
+  Deno.test(`rejects ${provider} sign-in without a verified phone`, async () => {
+    try { await verifyFirebasePhone(await token({ firebase: { sign_in_provider: provider }, phone_number: null }), project, keys); }
+    catch { return; }
+    throw new Error(`Accepted ${provider} without a phone`);
+  });
+}
 Deno.test('rejects forged signatures', async () => {
   try { await verifyFirebasePhone(await token({}, true), project, keys); }
   catch { return; }

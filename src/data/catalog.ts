@@ -320,10 +320,8 @@ export type Address = {
   lng?: number;
 };
 
-export const ADDRESSES: Address[] = [
-  { tag: 'H', label: 'Home', line: '123 Collins Street, Melbourne VIC 3000', area: 'Melbourne VIC' },
-  { tag: 'W', label: 'Work', line: 'Level 8, 420 Bourke Street, Melbourne VIC 3000', area: 'Melbourne VIC' },
-];
+/** The prototype's sample addresses, which older app versions gave every new user (removed on upgrade). */
+export const DEMO_ADDRESS_LINES = ['123 Collins Street, Melbourne VIC 3000', 'Level 8, 420 Bourke Street, Melbourne VIC 3000'];
 
 // Delivery fees, the express ETA and the free-delivery threshold come from Supabase: see `@/lib/remote-delivery`.
 

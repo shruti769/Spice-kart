@@ -27,7 +27,24 @@ Install the development build on a device. Expo Go does not contain the Firebase
 Test valid/incorrect/expired codes, resend, Android automatic verification, restart, and logout.
 The login selector supports Australia (+61, nine digits starting with 4) and India (+91, ten digits starting with 6–9).
 SMS requests and verification are handled by Firebase; arbitrary codes no longer sign in.
-Google/Apple demo buttons no longer bypass phone verification.
+Google/Apple sign-in never bypasses phone verification: see "Google and Apple sign-in" below.
+
+## Google and Apple sign-in
+
+Every account is still keyed by a verified mobile. Google / Apple sign in straight away when that
+Firebase user already has a phone linked; otherwise the app deletes the new empty Firebase user,
+asks for the mobile, runs the normal OTP, then links the Google / Apple credential to the phone
+user (`linkPendingSocial` in `src/lib/firebase-auth.ts`). `firebase-session` accepts `phone`,
+`google.com` and `apple.com` tokens only when they carry a `phone_number` claim.
+
+1. Authentication > Sign-in method: enable Google (pick a support email) and Apple.
+2. Download the updated `google-services.json` and `GoogleService-Info.plist` (they now contain the
+   Google OAuth clients and `REVERSED_CLIENT_ID`) and replace the root files.
+3. Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `.env` to the Web client ID (Authentication > Sign-in
+   method > Google > Web SDK configuration, or the `client_type: 3` entry in `google-services.json`).
+4. Sign in with Apple is iOS only. `ios.usesAppleSignIn` adds the capability; EAS enables it on the
+   App ID when building with the Apple Developer account. No Services ID is needed for native iOS.
+5. Rebuild the development client (new native modules), then deploy `firebase-session`.
 
 ## iOS (Apple credentials and device testing pending)
 

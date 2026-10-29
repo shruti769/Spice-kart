@@ -11,6 +11,7 @@ import { BackIcon, PersonIcon } from '@/components/icons';
 import { BottomSheet } from '@/components/overlays';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { socialSignUpProfile } from '@/lib/firebase-auth';
 import { goBack } from '@/lib/nav';
 import { pickPhoto } from '@/lib/pick-photo';
 import { saveProfile } from '@/lib/remote-profile';
@@ -202,13 +203,17 @@ export default function PersonalScreen() {
   const country = useApp((s) => s.phoneCountry);
   const setup = useLocalSearchParams<{ setup?: string }>().setup === '1';
   const [focus, setFocus] = useState<FieldKey | null>(null);
-  const [initial] = useState(() => ({
-    first: setup ? '' : user.first,
-    last: setup ? '' : user.last,
-    email: user.email,
-    mobile: setup && phone ? toInternationalPhone(phone, country) : normalizeProfileMobile(user.mobile),
-    dob: setup ? '' : user.dob,
-  }));
+  const [initial] = useState(() => {
+    // Sign-up after Google / Apple: start from the name and email they shared.
+    const social = setup ? socialSignUpProfile() : null;
+    return {
+      first: setup ? (social?.first ?? '') : user.first,
+      last: setup ? (social?.last ?? '') : user.last,
+      email: social?.email || user.email,
+      mobile: setup && phone ? toInternationalPhone(phone, country) : normalizeProfileMobile(user.mobile),
+      dob: setup ? '' : user.dob,
+    };
+  });
   const [v, setV] = useState(initial);
   const [avatar, setAvatar] = useState(setup ? undefined : user.avatar);
   const changePhoto = async () => {

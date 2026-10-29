@@ -6,8 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { PinIcon, SearchIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { addressAt, explainNoFix, getDeviceFix } from '@/lib/location';
-import { useApp } from '@/store/app-store';
+import { addAddressHere } from '@/lib/location';
 
 /** Prototype `useLoc`: return to where we came from, or land on Home after sign-in. */
 function done() {
@@ -29,19 +28,11 @@ export default function LocationScreen() {
   const pad = usePad();
   const [locating, setLocating] = useState(false);
 
-  /** GPS fix → street address → the Add address form, prefilled for the user to check. */
   const useMyLocation = async () => {
     if (locating) return;
     setLocating(true);
     try {
-      const r = await getDeviceFix({ ask: true });
-      if (!r.ok) return explainNoFix(r);
-      const found = await addressAt(r.fix);
-      if (!found) useApp.getState().flash('Couldn’t read the address here · please fill it in');
-      router.push({
-        pathname: '/addresses/new',
-        params: { from: 'location', lat: String(r.fix.lat), lng: String(r.fix.lng), ...(found ?? {}) },
-      });
+      await addAddressHere('location');
     } finally {
       setLocating(false);
     }

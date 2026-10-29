@@ -8,7 +8,7 @@ import { applyCouponRules, useCouponStore } from '@/lib/remote-coupons';
 import { slotFee, useDeliveryStore } from '@/lib/remote-delivery';
 
 import {
-  ADDRESSES,
+  DEMO_ADDRESS_LINES,
   findProduct,
   money,
   type Address,
@@ -111,7 +111,8 @@ const initial: State = {
   phone: '',
   phoneCountry: 'AU',
   addr: 0,
-  addresses: ADDRESSES.map((a) => ({ ...a })),
+  // Empty until the customer adds one (sign-up asks for it; checkout won't place an order without one).
+  addresses: [],
   coupon: null,
   cards: [
     { brand: 'VISA', last4: '4417', exp: '09/28' },
@@ -254,7 +255,6 @@ export const useApp = create<State & Actions>()(
 
   removeAddress: (index) => {
     const { addresses, addr } = get();
-    if (addresses.length <= 1) return;
     const next = addresses.filter((_, i) => i !== index);
     // Keep the selected address pointing at the same entry (or the first one if it was removed).
     set({ addresses: next, addr: addr === index ? 0 : addr > index ? addr - 1 : addr });
@@ -263,13 +263,20 @@ export const useApp = create<State & Actions>()(
   {
     // Saved with AsyncStorage so the user stays signed in (and keeps their data) across launches.
     name: 'spice-kart',
-    version: 2,
+    version: 3,
     storage: createJSONStorage(() => AsyncStorage),
     // v1 saved the old placeholder user ("Jaiveer Singh") for anyone who skipped their details.
     migrate: (saved, version) => {
       const s = saved as Partial<State>;
       if (version < 2 && s.user?.first === 'Jaiveer' && s.user.last === 'Singh') {
         s.user = { ...initial.user, avatar: s.user.avatar, email: s.user.email, mobile: s.phone ?? '' };
+      }
+      // v2 and older started everyone with the prototype's sample addresses: drop them, keep the
+      // selection on the same real address (or the first one).
+      if (version < 3 && s.addresses) {
+        const selected = s.addresses[s.addr ?? 0];
+        s.addresses = s.addresses.filter((a) => !DEMO_ADDRESS_LINES.includes(a.line));
+        s.addr = Math.max(0, selected ? s.addresses.indexOf(selected) : 0);
       }
       return s as State & Actions;
     },
@@ -354,7 +361,8 @@ export function sortAndFilter(list: Product[], s: Pick<State, 'sort' | 'dealsOnl
 }
 
 /** The currently selected delivery address. */
-export const useAddress = () => useApp((s) => s.addresses[s.addr] ?? s.addresses[0]);
+/** The selected delivery address; undefined until the customer has added one. */
+export const useAddress = (): Address | undefined => useApp((s) => s.addresses[s.addr] ?? s.addresses[0]);
 
 /** "Jaiveer Singh" → "JS" ('' when no name is set). */
 export const initialsOf = (u: User) => ((u.first.trim()[0] ?? '') + (u.last.trim()[0] ?? '')).toUpperCase();
