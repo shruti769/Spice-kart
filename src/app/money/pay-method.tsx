@@ -1,149 +1,26 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-
-import { Card, CardGlyph, Footer, IconBox, PrimaryButton, SecureNote, SectionLabel, useWalletVals } from '@/components/money/parts';
+import { View } from 'react-native';
+import { Card, Footer, PrimaryButton, SecureNote, useWalletVals } from '@/components/money/parts';
 import { ScreenHeader } from '@/components/screen-header';
-import { Screen, Tap, Txt } from '@/components/ui/primitives';
-import { C, f } from '@/constants/theme';
-import { brandName, useApp } from '@/store/app-store';
+import { Screen, Txt } from '@/components/ui/primitives';
+import { f } from '@/constants/theme';
 
-const AppleGlyph = () => (
-  <Svg width={15} height={15} viewBox="0 0 18 18" fill="none">
-    <Path
-      d="M12.4 9.5c0-1.6 1.2-2.6 1.3-2.7-.7-1-1.8-1.2-2.2-1.2-1 0-1.6.5-2 .5s-1-.5-1.8-.5c-1.4 0-2.8 1.2-2.8 3.4 0 1.4.5 2.8 1.2 3.7.5.7.9 1.3 1.6 1.3s.9-.4 1.8-.4 1 .4 1.7.4 1.2-.7 1.7-1.4c-1.2-.5-1.5-1.9-1.5-2.1z"
-      fill="#3F3F3B"
-    />
-    <Path d="M10.9 4.4c.4-.5.7-1.2.6-1.9-.6 0-1.4.4-1.8.9-.4.4-.7 1.1-.6 1.8.7.1 1.4-.3 1.8-.8z" fill="#3F3F3B" />
-  </Svg>
-);
-
-const GoogleGlyph = () => (
-  <Svg width={15} height={15} viewBox="0 0 18 18" fill="none">
-    <Path
-      d="M9 7.4v3.1h4.3c-.2 1-1.2 3-4.3 3a4.5 4.5 0 010-9c1.3 0 2.2.6 2.7 1l2.1-2A7.4 7.4 0 009 1.5a7.5 7.5 0 100 15c4.3 0 7.2-3 7.2-7.3 0-.6 0-1-.1-1.4H9z"
-      fill="#3F3F3B"
-    />
-  </Svg>
-);
-
-type Method = { title: string; sub: string; icon: ReactNode };
-
-const FAST: Method[] = [
-  { title: 'Apple Pay', sub: 'Fastest · Face ID', icon: <AppleGlyph /> },
-  { title: 'Google Pay', sub: 'Linked to your account', icon: <GoogleGlyph /> },
-];
-
-function MethodRow({ m, on, onPress }: { m: Method; on: boolean; onPress: () => void }) {
-  return (
-    <Tap
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: on }}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 11,
-        borderBottomWidth: 1,
-        borderBottomColor: C.dividerSoft,
-        backgroundColor: on ? C.selectedBg : '#fff',
-        padding: 12,
-      }}
-      pressedStyle={{ opacity: 0.85 }}>
-      <IconBox>{m.icon}</IconBox>
-      <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
-        <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>
-          {m.title}
-        </Txt>
-        <Txt numberOfLines={1} style={[f(400, 10.5, 1.2), { color: C.muted2 }]}>
-          {m.sub}
-        </Txt>
-      </View>
-      <View
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          borderWidth: 2,
-          borderColor: on ? C.lime : C.radioOff2,
-          backgroundColor: on ? C.lime : 'transparent',
-          flexShrink: 0,
-        }}
-      />
-    </Tap>
-  );
-}
-
-/** Choose how to pay for the top-up (prototype `sPayMethod`). */
 export default function PayMethodScreen() {
   const { amountStr } = useWalletVals();
-  const payIdx = useApp((s) => s.payIdx);
-  const set = useApp((s) => s.set);
-  const saved = useApp((s) => s.cards);
-  const defaultCard = useApp((s) => s.defaultCard);
-  const cards: Method[] = saved.map((c, i) => ({
-    title: brandName(c) + ' ending ' + c.last4,
-    sub: 'Expires ' + c.exp + (i === defaultCard ? ' · default' : ''),
-    icon: <CardGlyph />,
-  }));
-
   return (
     <Screen>
       <ScreenHeader variant="tint" title="Payment method" subtitle={`Adding ${amountStr} to your wallet`} />
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 20, gap: 12 }}
-        showsVerticalScrollIndicator={false}>
-        <View style={{ gap: 7 }}>
-          <SectionLabel>SAVED CARDS</SectionLabel>
-          <Card>
-            {cards.map((m, i) => (
-              <MethodRow key={m.title + i} m={m} on={payIdx === i} onPress={() => set({ payIdx: i })} />
-            ))}
-          </Card>
-        </View>
-        <View style={{ gap: 7 }}>
-          <SectionLabel>FAST CHECKOUT</SectionLabel>
-          <Card>
-            {FAST.map((m, i) => (
-              <MethodRow key={m.title} m={m} on={payIdx === i + cards.length} onPress={() => set({ payIdx: i + cards.length })} />
-            ))}
-          </Card>
-        </View>
-        <Tap
-          onPress={() => router.push('/payments/add-card')}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-            height: 48,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderStyle: 'dashed',
-            borderColor: '#C7C7C1',
-            borderRadius: 12,
-            backgroundColor: '#fff',
-          }}
-          pressedStyle={{ borderColor: C.lime }}>
-          <View
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 7,
-              backgroundColor: C.selectedBgAlt,
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-            <Txt style={[f(700, 15, 1), { color: C.green }]}>+</Txt>
-          </View>
-          <Txt style={[f(600, 12.5, 1), { color: C.forest }]}>Add a new card</Txt>
-        </Tap>
+      <View style={{ padding: 14, gap: 14 }}>
+        <Card style={{ padding: 16 }}>
+          <Txt style={f(400, 14, 1.5)}>
+            Choose a saved card, enter a new card, or use an available digital wallet on the secure payment screen after
+            confirming your top-up.
+          </Txt>
+        </Card>
         <SecureNote />
-      </ScrollView>
+      </View>
       <Footer>
-        <PrimaryButton tone="lime" label="Continue" onPress={() => router.push('/money/confirm')} />
+        <PrimaryButton tone="lime" label="Review top-up" onPress={() => router.push('/money/confirm')} />
       </Footer>
     </Screen>
   );

@@ -17,7 +17,7 @@ async function call(action: 'start' | 'cancel', orderId: string) {
   await ensureUserId();
   const { data, error } = await supabase.functions.invoke('stripe-payment', { body: { action, orderId } });
   if (error) throw error;
-  return data as { clientSecret?: string; paid?: boolean; cancelled?: boolean };
+  return data as { customer?: string; customerSessionClientSecret?: string; clientSecret?: string; paid?: boolean; cancelled?: boolean };
 }
 
 /**
@@ -27,12 +27,13 @@ async function call(action: 'start' | 'cancel', orderId: string) {
 export async function payForOrder(orderId: string): Promise<{ result: 'paid' | 'cancelled' | 'failed'; message?: string }> {
   if (!stripePublishableKey) return { result: 'failed', message: 'Card payments aren’t set up yet' };
   try {
-    const { clientSecret, paid } = await call('start', orderId);
+    const { clientSecret, paid, customer, customerSessionClientSecret } = await call('start', orderId);
     if (paid) return { result: 'paid' };
     if (!clientSecret) return { result: 'failed' };
     const init = await initPaymentSheet({
       merchantDisplayName: 'SpiceKart',
       paymentIntentClientSecret: clientSecret,
+      ...(customer ? { customerId: customer, customerSessionClientSecret } : {}),
       applePay: { merchantCountryCode: 'AU' },
       googlePay: { merchantCountryCode: 'AU', currencyCode: 'AUD', testEnv: stripePublishableKey.startsWith('pk_test_') },
       returnURL: 'spicekart://stripe-redirect',

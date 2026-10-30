@@ -27,12 +27,11 @@ const PAY_DEFS: [PaymentKey, string, string][] = [
   ['Card', 'Credit / debit card', 'Visa ending 4417'],
   ['Apple Pay', 'Apple Pay', 'Fastest checkout'],
   ['Google Pay', 'Google Pay', 'Linked to your account'],
-  ['PayID', 'PayID bank transfer', 'Pay from your bank app'],
   ['Spice Kart Money', 'Spice Kart Money', ''],
 ];
 
 /** The admin switches card / wallets / PayID on and off; Spice Kart Money is always offered. */
-const offered = (key: PaymentKey, methods: PaymentKey[]) => key === 'Spice Kart Money' || methods.includes(key);
+const offered = (key: PaymentKey, methods: PaymentKey[]) => key !== 'PayID' && (key === 'Spice Kart Money' || methods.includes(key));
 
 const sel = (on: boolean) => ({ borderColor: on ? LIME : OFF_BORDER, backgroundColor: on ? C.selectedBg : '#fff' });
 
@@ -346,7 +345,7 @@ export default function CheckoutScreen() {
           {payDefs.map(([key, label, fixedSub]) => {
             const sub =
               key === 'Card'
-                ? brandName(card) + ' ending ' + card.last4
+                ? (card ? brandName(card) + ' ending ' + card.last4 : 'Add a card at payment')
                 : key === 'Spice Kart Money'
                   ? 'Balance ' + money(balance) + (balance < t.total ? ' · not enough' : '')
                   : fixedSub;

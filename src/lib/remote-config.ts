@@ -22,10 +22,10 @@ export type StoreConfig = {
   paymentMethods: PaymentKey[];
 };
 
-const METHOD: Record<string, PaymentKey> = { card: 'Card', apple_pay: 'Apple Pay', google_pay: 'Google Pay', payid: 'PayID' };
+const METHOD: Record<string, PaymentKey> = { card: 'Card', apple_pay: 'Apple Pay', google_pay: 'Google Pay' };
 
 /** Until Supabase answers: no restrictions (the server still checks). */
-const DEFAULTS: StoreConfig = { hours: {}, minOrder: 0, paymentMethods: ['Card', 'Apple Pay', 'Google Pay', 'PayID'] };
+const DEFAULTS: StoreConfig = { hours: {}, minOrder: 0, paymentMethods: ['Card', 'Apple Pay', 'Google Pay'] };
 
 export const useConfigStore = create<StoreConfig>(() => DEFAULTS);
 

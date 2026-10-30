@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Card, CardGlyph, Footer, IconBox, KV, PrimaryButton, SecondaryButton, SecureNote, useWalletVals } from '@/components/money/parts';
@@ -16,11 +16,13 @@ export default function MoneyConfirmScreen() {
   const openPayMethod = () => router.push('/money/pay-method');
   const method = useTopUpMethod();
   const [adding, setAdding] = useState(false);
+  const addingRef = useRef(false);
 
-  // Credited on the server (demo: nothing is charged until a payment provider is connected).
+  // Stripe confirms payment before the server credits the wallet.
   const addMoney = async () => {
-    if (adding) return;
+    if (addingRef.current) return;
     if (amtErr) return useApp.getState().flash('Enter an amount between $5 and $500');
+    addingRef.current = true;
     setAdding(true);
     try {
       await topUp(amt, method.short);
@@ -28,6 +30,7 @@ export default function MoneyConfirmScreen() {
     } catch (e) {
       useApp.getState().flash(e instanceof TopUpError ? e.message : 'Couldn’t add money. Please try again');
     } finally {
+      addingRef.current = false;
       setAdding(false);
     }
   };

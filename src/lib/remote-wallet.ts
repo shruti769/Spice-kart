@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { singleFlight } from '@/lib/live-changes';
 import { ensureUserId } from '@/lib/remote-profile';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { payWalletTopUp } from '@/lib/stripe-wallet';
 import { useApp } from '@/store/app-store';
 
 // Spice Kart Money lives in Supabase: `wallets` (the balance) and `wallet_transactions` (every
@@ -63,26 +64,16 @@ export function refreshWallet() {
 
 export class TopUpError extends Error {}
 
-/**
- * Add money. DEMO: no payment provider is connected yet, so the server credits the top-up
- * without charging the card. Returns the new balance.
- */
-export async function topUp(amount: number, method: string): Promise<number> {
-  if (!isSupabaseConfigured) throw new TopUpError('Couldn’t add money. Please try again');
+/** Credits only after Stripe confirms a successful payment. */
+export async function topUp(amount: number, _method: string): Promise<number> {
   try {
-    await ensureUserId();
-  } catch {
-    throw new TopUpError('No connection · please try again');
+    const balance = await payWalletTopUp(amount);
+    useApp.getState().set({ wallet: balance });
+    await refreshWallet();
+    return balance;
+  } catch (e) {
+    throw new TopUpError(e instanceof Error ? e.message : 'Could not add money');
   }
-  const { data, error } = await supabase.rpc('wallet_top_up', { p_amount: amount, p_method: method });
-  if (error) {
-    if (__DEV__) console.warn('Could not top up:', error.message);
-    throw new TopUpError(error.message.includes('bad_amount') ? 'Enter an amount between $5 and $500' : 'Couldn’t add money. Please try again');
-  }
-  const balance = Number(data);
-  useApp.getState().set({ wallet: balance });
-  refreshWallet();
-  return balance;
 }
 
 let channel: RealtimeChannel | null = null;

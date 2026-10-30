@@ -1,3 +1,4 @@
+import { startRemoteCards } from '@/lib/stripe-wallet';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -8,9 +9,10 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';  
 
@@ -55,6 +57,18 @@ startRemoteConfig();
 startRemoteHelp();
 startRemoteSupport();
 startRemoteWallet();
+startRemoteCards();
+
+function PaymentRedirect() {
+  const { handleURLCallback } = useStripe();
+  useEffect(() => {
+    const handle = (url: string | null) => { if (url?.startsWith('spicekart://stripe-redirect')) handleURLCallback(url).catch(() => {}); };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => handle(url));
+    return () => subscription.remove();
+  }, [handleURLCallback]);
+  return null;
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -82,6 +96,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <SafeAreaProvider>
         <StripeProvider publishableKey={stripePublishableKey} merchantIdentifier="merchant.com.komal92.spicekart" urlScheme="spicekart">
+          <PaymentRedirect />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{

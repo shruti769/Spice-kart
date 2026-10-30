@@ -1,4 +1,6 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { refreshCards, walletRequest } from '@/lib/stripe-wallet';
 import { ScrollView, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -15,7 +17,7 @@ import {
 import { ScreenHeader } from '@/components/screen-header';
 import { Grad, Screen, Txt } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
-import { brandName, useApp, type SavedCard } from '@/store/app-store';
+import { useApp, type SavedCard } from '@/store/app-store';
 
 const TINTS: Record<SavedCard['brand'], string> = { VISA: '#F3F7EC', MASTERCARD: '#F2F4F8', AMEX: '#EEF4F7' };
 
@@ -27,15 +29,17 @@ export default function PaymentsScreen() {
   const wallet = useApp((s) => s.wallet);
   const cards = useApp((s) => s.cards);
   const defaultCard = useApp((s) => s.defaultCard);
-  const setDefault = (i: number) => {
-    useApp.getState().set({ defaultCard: i });
-    flash(brandName(cards[i]) + ' ending ' + cards[i].last4 + ' is now your default');
+  useFocusEffect(useCallback(() => { refreshCards().catch(() => flash('Could not load saved cards')); }, [flash]));
+  const updateCard = async (action: 'default' | 'remove', i: number) => {
+    try {
+      if (!cards[i]?.id) return;
+      await walletRequest({ action, id: cards[i].id });
+      await refreshCards();
+      flash(action === 'remove' ? 'Card removed' : 'Default card updated');
+    } catch { flash('Could not update card. Please try again.'); }
   };
-  const remove = (i: number) => {
-    if (cards.length <= 1) return flash('Keep at least one card on file');
-    useApp.getState().removeCard(i);
-    flash('Card removed');
-  };
+  const setDefault = (i: number) => updateCard('default', i);
+  const remove = (i: number) => updateCard('remove', i);
   const walletStr = '$' + (wallet ?? 0).toFixed(2);
 
   return (
@@ -79,7 +83,7 @@ export default function PaymentsScreen() {
               </Svg>
             }
             title="Spice Kart Money"
-            sub="Applies before card at checkout"
+            sub="Choose at checkout"
             value={walletStr}
             onPress={() => router.push('/money')}
           />

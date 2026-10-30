@@ -19,7 +19,7 @@ export type SortOption = 'Recommended' | 'Price: Low to High' | 'Price: High to 
 export type PriceFilter = 'u5' | '5to10' | 'o10' | null;
 export type PaymentKey = 'Card' | 'Apple Pay' | 'Google Pay' | 'PayID' | 'Spice Kart Money';
 export type User = { first: string; last: string; email: string; /** International mobile; legacy AU profiles may contain nine local digits. */ mobile: string; dob: string; /** Profile photo URL (Supabase Storage). */ avatar?: string };
-export type SavedCard = { brand: 'VISA' | 'MASTERCARD' | 'AMEX'; last4: string; /** MM/YY */ exp: string };
+export type SavedCard = { id: string; brand: 'VISA' | 'MASTERCARD' | 'AMEX'; last4: string; /** MM/YY */ exp: string };
 /** The last order placed on this device (`id` = Supabase `orders.id`, for tracking). */
 export type PlacedOrder = { id?: string; no: string; itemIds: string[]; qty: Record<string, number>; total: string };
 
@@ -99,8 +99,6 @@ type Actions = {
   restart: () => void;
   addAddress: (a: Address, makeDefault: boolean) => void;
   removeAddress: (index: number) => void;
-  addCard: (c: SavedCard, makeDefault: boolean) => void;
-  removeCard: (index: number) => void;
 };
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -114,10 +112,7 @@ const initial: State = {
   // Empty until the customer adds one (sign-up asks for it; checkout won't place an order without one).
   addresses: [],
   coupon: null,
-  cards: [
-    { brand: 'VISA', last4: '4417', exp: '09/28' },
-    { brand: 'MASTERCARD', last4: '8802', exp: '03/27' },
-  ],
+  cards: [],
   defaultCard: 0,
   // Empty until the user fills in their details (sign-up can be skipped).
   user: { first: '', last: '', email: '', mobile: '', dob: '' },
@@ -239,20 +234,6 @@ export const useApp = create<State & Actions>()(
     set({ addresses, ...(makeDefault ? { addr: addresses.length - 1 } : {}) });
   },
 
-  addCard: (c, makeDefault) => {
-    const cards = [...get().cards, c];
-    set({ cards, ...(makeDefault ? { defaultCard: cards.length - 1 } : {}) });
-  },
-
-  removeCard: (index) => {
-    const { cards, defaultCard } = get();
-    if (cards.length <= 1) return;
-    set({
-      cards: cards.filter((_, i) => i !== index),
-      defaultCard: defaultCard === index ? 0 : defaultCard > index ? defaultCard - 1 : defaultCard,
-    });
-  },
-
   removeAddress: (index) => {
     const { addresses, addr } = get();
     const next = addresses.filter((_, i) => i !== index);
@@ -281,15 +262,15 @@ export const useApp = create<State & Actions>()(
       return s as State & Actions;
     },
     // A persisted UI flag must never restore an unverified account.
-    merge: (saved, current) => ({ ...current, ...(saved as Partial<State>), signedIn: false }),
+    merge: (saved, current) => ({ ...current, ...(saved as Partial<State>), signedIn: false, cards: [], defaultCard: 0 }),
     partialize: (s) => ({
       phone: s.phone,
       phoneCountry: s.phoneCountry,
       user: s.user,
       addresses: s.addresses,
       addr: s.addr,
-      cards: s.cards,
-      defaultCard: s.defaultCard,
+      cards: [],
+      defaultCard: 0,
       prefs: s.prefs,
       wallet: s.wallet,
       payment: s.payment,
@@ -371,24 +352,14 @@ export const initialsOf = (u: User) => ((u.first.trim()[0] ?? '') + (u.last.trim
 export const greetingName = (u: User) => u.first.trim() || 'there';
 
 /** The card used for checkout and wallet top-ups. */
-export const useDefaultCard = () => useApp((s) => s.cards[s.defaultCard] ?? s.cards[0]);
+export const useDefaultCard = (): SavedCard | undefined => useApp((s) => s.cards[s.defaultCard] ?? s.cards[0]);
 
 /** "VISA" → "Visa", "AMEX" → "Amex". */
-export const brandName = (c: SavedCard) => c.brand[0] + c.brand.slice(1).toLowerCase();
+export const brandName = (c: SavedCard | undefined) => c ? c.brand[0] + c.brand.slice(1).toLowerCase() : 'Card';
 
-const FAST_METHODS = ['Apple Pay', 'Google Pay'] as const;
-
-/**
- * Wallet top-up method picked on the Payment method screen: saved cards first, then Apple Pay /
- * Google Pay. Returns a title ("Visa ending 4417"), a subtitle and a short label ("Visa · 4417").
- */
+/** The actual card or wallet is chosen in the secure Payment Sheet. */
 export function useTopUpMethod() {
-  const cards = useApp((s) => s.cards);
-  const payIdx = useApp((s) => s.payIdx);
-  const card = cards[payIdx];
-  if (card) return { title: brandName(card) + ' ending ' + card.last4, sub: 'Expires ' + card.exp, short: brandName(card) + ' · ' + card.last4 };
-  const fast = FAST_METHODS[payIdx - cards.length] ?? FAST_METHODS[0];
-  return { title: fast, sub: 'Confirm on your device', short: fast };
+  return { title: 'Card or digital wallet', sub: 'Choose on the secure payment screen', short: 'Card or digital wallet' };
 }
 
 /** Resolves once the saved state has been loaded from AsyncStorage (immediately if already loaded). */

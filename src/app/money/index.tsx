@@ -134,9 +134,9 @@ export default function MoneyScreen() {
               </IconBox>
               <View style={{ gap: 3, flex: 1, minWidth: 0 }}>
                 <Txt numberOfLines={1} style={f(500, 12.5, 1.2)}>
-                  {brandName(card) + ' · ' + card.last4}
+                  {card ? brandName(card) + ' · ' + card.last4 : 'Card or digital wallet'}
                 </Txt>
-                <Txt style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>Expires {card.exp}</Txt>
+                <Txt style={[f(400, 10.5, 1.3), { color: C.muted2 }]}>{card ? 'Expires ' + card.exp : 'Choose at payment'}</Txt>
               </View>
               <Txt numberOfLines={1} style={[f(400, 11, 1), { color: C.muted2 }]}>
                 Default

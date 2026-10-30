@@ -31,6 +31,22 @@ Deno.serve(async (request) => {
     return Response.json({ ignored: event.type });
   }
 
+  const walletUser = event.data.object.metadata?.wallet_user;
+  if (walletUser && event.type === 'payment_intent.succeeded') {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(event.data.object.id);
+      if (intent.status !== 'succeeded' || intent.currency !== 'aud' || intent.amount_received !== intent.amount) return new Response('Invalid wallet payment', { status: 400 });
+      const admin = createClient(supabaseUrl, serviceKey);
+      const { data: owner, error: ownerError } = await admin.from('stripe_customers').select('stripe_id').eq('customer_id', walletUser).maybeSingle();
+      if (ownerError) throw ownerError;
+      if (!owner) return Response.json({ ignored: 'deleted wallet customer' });
+      if (owner.stripe_id !== intent.customer) return new Response('Wallet owner mismatch', { status: 400 });
+      const { error } = await admin.rpc('credit_stripe_wallet', { p_intent: intent.id, p_customer: walletUser, p_amount: intent.amount_received / 100 });
+      if (error) throw error;
+      return Response.json({ ok: true });
+    } catch { return new Response('Try again', { status: 500 }); }
+  }
+
   const orderId = event.data.object.metadata?.order_id;
   if (!orderId) return Response.json({ ignored: 'no order' });
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });

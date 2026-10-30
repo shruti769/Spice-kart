@@ -43,6 +43,16 @@ Deno.serve(async (request) => {
   if (!order) return reply(404, { error: 'order_not_found' });
   if (!STRIPE_METHODS.includes(order.payment_method)) return reply(400, { error: 'not_a_card_order' });
 
+  const { data: { user: owner }, error: ownerError } = await user.auth.getUser();
+  if (ownerError || !owner) return reply(401, { error: 'not_signed_in' });
+  const { data: mapping, error: mappingError } = await admin.from('stripe_customers').select('stripe_id').eq('customer_id', owner.id).maybeSingle();
+  if (mappingError) return reply(503, { error: 'try_again' });
+  const customer = mapping?.stripe_id;
+  const customerDetails = async () => {
+    if (!customer) return {};
+    const session = await stripe.customerSessions.create({ customer, components: { mobile_payment_element: { enabled: true, features: { payment_method_redisplay: 'enabled' } } } });
+    return { customer, customerSessionClientSecret: session.client_secret };
+  };
   try {
     if (action === 'start') {
       if (order.payment_status === 'paid') return reply(200, { paid: true });
@@ -55,14 +65,16 @@ Deno.serve(async (request) => {
         intent = await stripe.paymentIntents.create({
           amount: Math.round(Number(order.total) * 100),
           currency: 'aud',
-          automatic_payment_methods: { enabled: true },
+          payment_method_types: ['card'],
+          ...(customer ? { customer } : {}),
           description: `SpiceKart order #${order.number}`,
           metadata: { order_id: order.id, order_number: order.number },
         }, { idempotencyKey: `order-${order.id}` });
         const saved = await admin.from('orders').update({ stripe_payment_intent: intent.id }).eq('id', order.id);
         if (saved.error) throw saved.error;
       }
-      return reply(200, { clientSecret: intent.client_secret });
+      if (customer && !intent.customer) intent = await stripe.paymentIntents.update(intent.id, { customer });
+      return reply(200, { clientSecret: intent.client_secret, ...await customerDetails() });
     }
 
     // cancel

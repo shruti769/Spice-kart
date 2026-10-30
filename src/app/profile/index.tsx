@@ -197,7 +197,7 @@ export default function ProfileScreen() {
         <Section label="YOUR ACCOUNT">
           <Row icon="person" title="Personal details" value={user.first.trim() ? user.first.trim() + ' ' + (user.last.trim()[0] ?? '') : 'Add your name'} href="/profile/personal" />
           <Row icon="pin" title="Saved addresses" value={savedCount + " saved"} href="/addresses" />
-          <Row icon="card" title="Payment methods" value={brandName(card) + ' · ' + card.last4} href="/payments" last />
+          <Row icon="card" title="Payment methods" value={card ? brandName(card) + ' · ' + card.last4 : 'Add a card'} href="/payments" last />
         </Section>
 
         <Section label="PRIVACY & PREFERENCES">
