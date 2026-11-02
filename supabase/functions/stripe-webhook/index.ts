@@ -27,6 +27,26 @@ Deno.serve(async (request) => {
   } catch {
     return new Response('Bad signature', { status: 400 });
   }
+  // A bank can bounce a refund long after Stripe accepted it. Cancelling one in the Dashboard ends up the same way.
+  if (event.type === 'refund.failed' || event.type === 'refund.updated') {
+    const refund = event.data.object;
+    if (refund.status !== 'failed' && refund.status !== 'canceled') return Response.json({ ignored: event.type });
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const intent = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+    const { error } = await admin.rpc('stripe_refund_failed', {
+      p_refund: refund.id,
+      p_intent: intent ?? '',
+      p_amount: refund.amount / 100,
+      p_reason: refund.failure_reason ?? refund.status,
+      p_wallet_customer: refund.metadata?.wallet_return === 'true' ? refund.metadata.wallet_user : null,
+      p_refund_request: refund.metadata?.refund_request ?? null,
+    });
+    if (error) {
+      console.error('stripe-webhook', event.id, error.message);
+      return new Response('Try again', { status: 500 });
+    }
+    return Response.json({ ok: true });
+  }
   if (event.type !== 'payment_intent.succeeded' && event.type !== 'payment_intent.payment_failed') {
     return Response.json({ ignored: event.type });
   }

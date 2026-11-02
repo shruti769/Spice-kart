@@ -258,12 +258,12 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
       'Add details, and a photo if an item arrived damaged.',
       'Tap Continue to chat.',
     ],
-    note: 'Refunds go back to the payment method you used. Your bank may take 3–5 business days to show it.',
+    note: 'Refunds go back to the payment method you used. Your bank may take 5–10 business days to show it.',
   },
   {
     q: 'How long do refunds take?',
     sub: 'Checking on a refund',
-    body: 'Once your refund is approved we’ll confirm it in your chat. It’s returned to the payment method you used for the order, and your bank may take 3–5 business days to show it.',
+    body: 'Once your refund is approved we’ll confirm it in your chat. It’s returned to the payment method you used for the order, and your bank may take 5–10 business days to show it.',
     stepsTitle: 'TO CHECK ON A REFUND',
     steps: [
       'Open Contact support.',

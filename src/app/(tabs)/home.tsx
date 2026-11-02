@@ -29,6 +29,15 @@ const goCats = () => goTab('categories');
 const goOffers = () => router.push('/offers');
 const goShop = () => router.push('/shop');
 
+function BellIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">
+      <Path d="M5.6 8.6a4.4 4.4 0 018.8 0v3.4l1.3 2.2H4.3l1.3-2.2V8.6z" stroke={C.forest} strokeWidth={1.6} strokeLinejoin="round" />
+      <Path d="M8.4 16.2a1.7 1.7 0 003.2 0" stroke={C.forest} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function DollarIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">
@@ -164,18 +173,19 @@ export default function HomeScreen() {
               <DollarIcon />
               <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>{walletStr}</Txt>
             </Tap>
-            <View>
-              <Tap accessibilityLabel={unreadNotifications ? 'Account, new notifications' : 'Account'} onPress={() => router.push('/profile')} style={styles.avatar}>
-                {user.avatar ? (
-                  <Image source={{ uri: user.avatar }} contentFit="cover" style={StyleSheet.absoluteFill} />
-                ) : initialsOf(user) ? (
-                  <Txt style={[f(700, 14, 1.2), { color: C.lime }]}>{initialsOf(user)}</Txt>
-                ) : (
-                  <PersonIcon size={18} color={C.lime} />
-                )}
-              </Tap>
+            <Tap accessibilityLabel={unreadNotifications ? `Notifications, ${unreadNotifications} new` : 'Notifications'} onPress={() => router.push('/notifications')} style={styles.bell}>
+              <BellIcon />
               {unreadNotifications > 0 && <View pointerEvents="none" style={styles.unreadDot} />}
-            </View>
+            </Tap>
+            <Tap accessibilityLabel="Account" onPress={() => router.push('/profile')} style={styles.avatar}>
+              {user.avatar ? (
+                <Image source={{ uri: user.avatar }} contentFit="cover" style={StyleSheet.absoluteFill} />
+              ) : initialsOf(user) ? (
+                <Txt style={[f(700, 14, 1.2), { color: C.lime }]}>{initialsOf(user)}</Txt>
+              ) : (
+                <PersonIcon size={18} color={C.lime} />
+              )}
+            </Tap>
           </View>
         </View>
         <Tap onPress={() => goTab('search')} style={styles.search}>
@@ -274,6 +284,7 @@ const styles = StyleSheet.create({
   headerActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 34, paddingHorizontal: 11, borderRadius: 9, borderWidth: 1, borderColor: '#C8DFA4', backgroundColor: 'rgba(255,255,255,0.8)' },
   avatar: { width: 34, height: 34, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#2B4F30', backgroundColor: C.greenDeep, alignItems: 'center', justifyContent: 'center' },
+  bell: { width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderColor: '#C8DFA4', backgroundColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center' },
   unreadDot: { position: 'absolute', top: -3, right: -3, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: '#fff', backgroundColor: C.danger },
   brandDeals: { marginTop: 32 },
   collectionCover: { height: 130, marginHorizontal: 16, marginBottom: 10, borderRadius: 12, backgroundColor: '#EFF2EA' },

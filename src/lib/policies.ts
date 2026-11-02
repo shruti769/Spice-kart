@@ -84,7 +84,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
       {
         heading: 'How refunds are issued',
         body: [
-          'Approved refunds are credited to Spice Kart Money immediately. Refunds to your original payment method take 3–5 business days.',
+          'Approved refunds go back to the payment method you used, and your bank may take 5–10 business days to show them. Orders paid with Spice Kart Money are refunded to your Spice Kart Money.',
         ],
       },
       {
@@ -152,7 +152,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
   wallet: {
     title: 'Wallet Terms',
     updated: '2 Nov 2026',
-    intro: 'Rules for Spice Kart Money: your balance and top-ups.',
+    intro: 'Rules for Spice Kart Money: your balance, top-ups and getting your money back.',
     sections: [
       {
         heading: 'Your balance',
@@ -163,6 +163,10 @@ export const POLICIES: Record<PolicyId, Policy> = {
       {
         heading: 'Top-ups',
         body: ['Top up from $5 to $500 at a time by card.'],
+      },
+      {
+        heading: 'Getting your money back',
+        body: ['Contact support to return top-ups to the card you paid with. Credit that wasn’t paid by card can only be spent on Spice Kart.'],
       },
     ],
   },

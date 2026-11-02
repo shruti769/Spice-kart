@@ -39,7 +39,7 @@ const FAQS: Faq[] = [
   { q: 'Why was my payment declined?', topic: 'payments', index: 0 },
 ];
 
-const openTopic = (topic: HelpTopicId, q = 0) => router.push({ pathname: '/help/[topic]', params: { topic, q: String(q) } });
+const openTopic = (topic: HelpTopicId, q?: number) => router.push({ pathname: '/help/[topic]', params: q == null ? { topic } : { topic, q: String(q) } });
 
 /** The five most-read live questions, each with its answer for the inline accordion. */
 function useFaqs(): Faq[] {

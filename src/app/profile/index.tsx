@@ -13,7 +13,6 @@ import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
 import { goTab } from '@/lib/nav';
 import { useCoupons } from '@/lib/remote-coupons';
-import { useUnreadNotifications } from '@/lib/remote-notifications';
 import { useOfferTiles } from '@/lib/remote-offers';
 import { useOrders } from '@/lib/remote-orders';
 import { logOut, setServerPref } from '@/lib/remote-privacy';
@@ -148,7 +147,6 @@ export default function ProfileScreen() {
   const { orders, loaded: ordersLoaded } = useOrders();
   const { coupons } = useCoupons();
   const { deals, bank } = useOfferTiles();
-  const unreadNotifications = useUnreadNotifications();
   // The orders list stops at the latest 50.
   const orderCount = !ordersLoaded ? '–' : orders.length >= 50 ? '50+' : orders.length;
   const offersLive = coupons.length + deals.length + bank.length;
@@ -207,8 +205,7 @@ export default function ProfileScreen() {
         <Section label="YOUR ACCOUNT">
           <Row icon="person" title="Personal details" value={user.first.trim() ? user.first.trim() + ' ' + (user.last.trim()[0] ?? '') : 'Add your name'} href="/profile/personal" />
           <Row icon="pin" title="Saved addresses" value={savedCount + " saved"} href="/addresses" />
-          <Row icon="card" title="Payment methods" value={card ? brandName(card) + ' · ' + card.last4 : 'Add a card'} href="/payments" />
-          <Row icon="bell" title="Notification inbox" value={unreadNotifications ? unreadNotifications + ' new' : ''} href="/notifications" last />
+          <Row icon="card" title="Payment methods" value={card ? brandName(card) + ' · ' + card.last4 : 'Add a card'} href="/payments" last />
         </Section>
 
         <Section label="PRIVACY & PREFERENCES">

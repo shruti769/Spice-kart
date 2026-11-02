@@ -70,8 +70,8 @@ export default function HelpTopicScreen() {
   const pad = usePad();
   const { topic: id, q } = useLocalSearchParams<{ topic: string; q?: string }>();
   const topic = useHelpTopics().find((t) => t.id === id);
-  // The first question starts open (or the one linked to).
-  const [open, setOpen] = useState<number | null>(() => Number(q ?? 0) || 0);
+  // Every question starts closed, unless the customer tapped that question to get here.
+  const [open, setOpen] = useState<number | null>(() => (q == null ? null : Number(q)));
   // Count each question once per visit when it's opened.
   const openId = open == null ? undefined : topic?.questions[open]?.id;
   const [seen] = useState(() => new Set<string>());

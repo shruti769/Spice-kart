@@ -182,7 +182,7 @@ export default function CartScreen() {
               <Txt style={[f(600, 13, 1.25), { color: C.ink2 }]}>Cancellation policy</Txt>
               <Txt style={[f(400, 12.5, 1.55), { color: C.muted }]}>
                 Need to cancel? Contact support before our team starts picking and we’ll cancel it free of charge. After that a small restocking fee
-                applies for fresh items. Refunds reach your original payment method within 3–5 business days.
+                applies for fresh items. Refunds reach your original payment method within 5–10 business days.
               </Txt>
             </View>
           </View>
