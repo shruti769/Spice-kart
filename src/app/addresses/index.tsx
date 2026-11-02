@@ -9,6 +9,7 @@ import { BottomSheet } from '@/components/overlays';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { addAddressHere } from '@/lib/location';
+import { deleteAddress, selectAddress } from '@/lib/remote-addresses';
 import { useApp } from '@/store/app-store';
 
 
@@ -55,7 +56,7 @@ export default function AddressesScreen() {
     .filter(({ a }) => !q || (a.label + ' ' + a.line).toLowerCase().includes(q));
 
   const select = (index: number) => {
-    useApp.getState().set({ addr: index });
+    selectAddress(index);
     flash('Delivering to ' + addresses[index].label);
   };
   const [locating, setLocating] = useState(false);
@@ -68,10 +69,14 @@ export default function AddressesScreen() {
       setLocating(false);
     }
   };
-  const confirmRemove = () => {
+  const confirmRemove = async () => {
     if (removing === null) return;
-    useApp.getState().removeAddress(removing);
-    flash('Address removed');
+    try {
+      await deleteAddress(removing);
+      flash('Address removed');
+    } catch {
+      flash('Couldn’t remove this address. Please try again');
+    }
     close();
   };
 
@@ -143,13 +148,23 @@ export default function AddressesScreen() {
               <Txt numberOfLines={2} style={[f(400, 12, 1.35), { color: C.muted }]}>
                 {a.line}
               </Txt>
+              {!!a.notes && (
+                <Txt numberOfLines={1} style={[f(400, 11, 1.3), { color: C.muted2 }]}>
+                  {a.notes}
+                </Txt>
+              )}
             </View>
+            {!!a.id && (
+              <Tap accessibilityRole="button" accessibilityLabel={'Edit ' + a.label + ' address'} hitSlop={10} onPress={() => router.push({ pathname: '/addresses/new', params: { id: a.id } })}>
+                <Txt style={[f(600, 12, 1.2), { color: C.greenOk }]}>Edit</Txt>
+              </Tap>
+            )}
           </Tap>
         ))}
       </ScrollView>
 
       <BottomSheet
-        visible={!!removing}
+        visible={removing !== null}
         onClose={close}
         dim={0.4}
         style={{

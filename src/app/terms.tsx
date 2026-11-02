@@ -25,8 +25,8 @@ const GROUPS: { title: string; rows: [string, string, GlyphName, PolicyId][] }[]
   {
     title: 'MONEY',
     rows: [
-      ['Payment Policy', 'Charges, holds and receipts', 'card', 'payment'],
-      ['Wallet Terms', 'Top-ups, cashback and withdrawals', 'coin', 'wallet'],
+      ['Payment Policy', 'Charges and payment methods', 'card', 'payment'],
+      ['Wallet Terms', 'Your balance and top-ups', 'coin', 'wallet'],
       ['Promotional Terms', 'Coupons, offers and eligibility', 'doc', 'promo'],
     ],
   },

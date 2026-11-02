@@ -6,20 +6,22 @@ import { ActivityIndicator, KeyboardAvoidingView, ScrollView, TextInput, View } 
 import { Caption, FooterBar, Glyph, Row, Section, type GlyphName } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
+import { Toggle } from '@/components/ui/toggle';
 import { C, f } from '@/constants/theme';
 import { pickPhoto } from '@/lib/pick-photo';
 import { useOrders } from '@/lib/remote-orders';
+import { requestRefund, useRefundStore, type RefundReason } from '@/lib/remote-refunds';
 import { openTicket, type SupportTopic } from '@/lib/remote-support';
 import { useApp } from '@/store/app-store';
 
-/** [title, sub, icon, support topic] */
-const ISSUES: [string, string, GlyphName, SupportTopic][] = [
-  ['Missing item', 'Something did not arrive in the bag', 'box', 'orders'],
-  ['Damaged item', 'Arrived crushed, leaking or spoiled', 'flag', 'orders'],
-  ['Delivery issue', 'Late, wrong address or no-show', 'truck', 'delivery'],
-  ['Payment issue', 'Wrong amount or double charge', 'card', 'payments'],
-  ['Refund issue', 'Refund missing or incorrect', 'refund', 'refunds'],
-  ['Account issue', 'Login, details or notifications', 'user', 'account'],
+/** [title, sub, icon, support topic, refund reason (null = not about an order)] */
+const ISSUES: [string, string, GlyphName, SupportTopic, RefundReason | null][] = [
+  ['Missing item', 'Something did not arrive in the bag', 'box', 'orders', 'missing_item'],
+  ['Damaged item', 'Arrived crushed, leaking or spoiled', 'flag', 'orders', 'damaged_item'],
+  ['Delivery issue', 'Late, wrong address or no-show', 'truck', 'delivery', 'delivery_issue'],
+  ['Payment issue', 'Wrong amount or double charge', 'card', 'payments', 'payment_issue'],
+  ['Refund issue', 'Refund missing or incorrect', 'refund', 'refunds', 'refund_issue'],
+  ['Account issue', 'Login, details or notifications', 'user', 'account', null],
 ];
 
 const ORDER_STATUS: Record<string, string> = {
@@ -52,22 +54,31 @@ export default function SupportIssueScreen() {
   const [detail, setDetail] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [wantRefund, setWantRefund] = useState(false);
   const account = (issueIdx || 0) === 5;
+  const about = account ? null : order;
+  // One request at a time per order: the admin decides it before another can be made.
+  const openRefund = useRefundStore((s) => (about ? s.refunds.find((r) => r.orderId === about.id && r.status === 'pending') : undefined));
+  const refund = wantRefund && !!about && !openRefund;
 
-  // Opens a support chat with the report as its first message, then shows it.
+  // Opens a support chat with the report as its first message (and asks for the refund), then shows it.
   const submit = async () => {
     if (sending) return;
-    const [title, sub, , topic] = ISSUES[issueIdx || 0];
-    const about = account ? null : order;
+    const [title, sub, , topic, reason] = ISSUES[issueIdx || 0];
+    const text = detail.trim() || `${title}: ${sub.toLowerCase()}.`;
     setSending(true);
     try {
       const id = await openTicket({
         subject: about ? `${title} · #${about.no}` : title,
-        message: detail.trim() || `${title}: ${sub.toLowerCase()}.`,
+        message: refund ? `${text}\n\nI’d like to request a refund.` : text,
         topic,
         orderId: about?.id ?? null,
         photoUri: photo,
       });
+      // The report is already with support, so a failed request doesn't stop them reaching the chat.
+      if (refund && about && reason) {
+        await requestRefund({ orderId: about.id, reason, detail: text }).catch(() => flash('Your report was sent, but the refund request wasn’t. Please ask in this chat'));
+      }
       router.replace({ pathname: '/support/chat', params: { ticket: id } });
     } catch (e) {
       setSending(false);
@@ -118,6 +129,25 @@ export default function SupportIssueScreen() {
               />
             ))}
           </Section>
+
+          {!!about && (
+            <Section title="REFUND">
+              {openRefund ? (
+                <Row icon="refund" title={`${openRefund.number} is under review`} sub={`We’ll let you know about order #${about.no}`} subNoWrap padV={12} />
+              ) : (
+                <Row
+                  icon="refund"
+                  title="Request a refund"
+                  sub={`Our team will review order #${about.no}`}
+                  weight={600}
+                  subNoWrap
+                  padV={12}
+                  right={<Toggle value={wantRefund} onChange={() => setWantRefund((v) => !v)} label="Request a refund" />}
+                  onPress={() => setWantRefund((v) => !v)}
+                />
+              )}
+            </Section>
+          )}
 
           <View style={{ gap: 8 }}>
             <Caption>TELL US MORE (OPTIONAL)</Caption>

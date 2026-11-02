@@ -311,13 +311,17 @@ export function searchProducts(q: string) {
 
 /** A saved delivery address. `area` is the short "Suburb STATE" shown in the Home header. */
 export type Address = {
+  /** Supabase `customer_addresses.id`; missing only on addresses saved before they synced. */
+  id?: string;
   tag: string;
   label: string;
   line: string;
   area: string;
-  /** Map pin (from the phone's GPS or geocoder), when known; sent with orders for the driver. */
+  /** Map pin (from the phone's GPS or geocoder), when known; sent with orders for delivery. */
   lat?: number;
   lng?: number;
+  /** Delivery instructions, sent with orders for the admin's order page. */
+  notes?: string;
 };
 
 /** The prototype's sample addresses, which older app versions gave every new user (removed on upgrade). */

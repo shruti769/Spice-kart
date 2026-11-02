@@ -185,10 +185,10 @@ function dobError(dob: string) {
   return valid && yyyy >= 1900 && date < new Date() ? undefined : 'Enter a valid date of birth';
 }
 
-/** After sign-up (setup mode) the app continues to the delivery address picker. */
+/** After sign-up (setup mode) the app continues to the delivery address picker, unless the account already has an address. */
 function finishSetup() {
   if (router.canDismiss()) router.dismissAll();
-  router.replace('/location');
+  router.replace(useApp.getState().addresses.length ? '/home' : '/location');
 }
 
 /**

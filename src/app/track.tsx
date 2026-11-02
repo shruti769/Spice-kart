@@ -8,7 +8,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { BottomNav } from '@/components/bottom-nav';
 import { BackIcon } from '@/components/icons';
@@ -77,41 +77,6 @@ function Pulse() {
   );
 }
 
-function MapCard({ status, route }: { status: string; route: string }) {
-  return (
-    <View style={styles.map}>
-      <Svg viewBox="0 0 367 200" style={StyleSheet.absoluteFill}>
-        <Path d="M-10 58h387M-10 140h387M95 -10v220M263 -10v220" stroke="#F4F6F1" strokeWidth={8} />
-        <Rect x={19} y={13} width={67} height={34} rx={4} fill="#E5E9DE" />
-        <Rect x={114} y={13} width={130} height={34} rx={4} fill="#E5E9DE" />
-        <Rect x={281} y={19} width={90} height={29} rx={4} fill="#E5E9DE" />
-        <Rect x={16} y={155} width={62} height={28} rx={4} fill="#E5E9DE" />
-        <Rect x={120} y={153} width={120} height={34} rx={4} fill="#E5E9DE" />
-        <Rect x={278} y={157} width={94} height={31} rx={4} fill="#E5E9DE" />
-        <Path d="M57 170 C 90 166, 100 124, 140 118 S 220 104, 263 85" stroke={LIME} strokeWidth={5} fill="none" strokeLinecap="round" />
-        <Path d="M263 85 C 290 76, 308 62, 328 44" stroke="#B9C6AC" strokeWidth={4} fill="none" strokeLinecap="round" strokeDasharray="8 7" />
-        <Circle cx={57} cy={170} r={6} fill={C.greenDeep} />
-        <Circle cx={263} cy={85} r={16} fill={LIME} fillOpacity={0.3} />
-        <Circle cx={263} cy={85} r={9.5} fill="#fff" stroke={C.greenDeep} strokeWidth={3} />
-        <Circle cx={328} cy={44} r={7} fill="#fff" stroke={C.greenDeep} strokeWidth={3} />
-      </Svg>
-      <View style={styles.mapPill}>
-        <View style={styles.mapDot} />
-        <Txt numberOfLines={1} style={[f(600, 12, 1.2), { color: C.greenDeep }]}>{status}</Txt>
-      </View>
-      <Txt numberOfLines={1} style={[f(500, 10, 1.2), styles.mapRoute]}>{route}</Txt>
-      <View style={styles.zoomStack}>
-        <View style={styles.zoom}>
-          <Txt style={[f(600, 15, 1.2), { color: C.ink }]}>+</Txt>
-        </View>
-        <View style={styles.zoom}>
-          <Txt style={[f(600, 15, 1.2), { color: C.ink }]}>−</Txt>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 /** Live tracking for one order (`?id=`), or the customer's latest active order. */
 export default function TrackScreen() {
   const pad = usePad();
@@ -158,7 +123,6 @@ function Tracking({ order }: { order: TrackedOrder }) {
   const delivered = order.status === 'delivered';
   const cur = currentStep(order);
   const late = !cancelled && !delivered && !!order.promisedBy && new Date(order.promisedBy) < new Date();
-  const street = order.addressLine.split(',')[0];
   // Name and phone exactly as the admin saved them (live), for this order's store.
   const store = useStore(order.storeId);
   const phone = store?.phone || SUPPORT_PHONE;
@@ -183,8 +147,6 @@ function Tracking({ order }: { order: TrackedOrder }) {
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <MapCard status={HEADLINE[order.status]} route={(store?.suburb || store?.name || 'Spice Kart') + ' → ' + street} />
-
       <View style={[styles.eta, cancelled && { backgroundColor: '#5A2A20' }]}>
         <View style={{ gap: 3, flexShrink: 1 }}>
           <Txt style={[f(500, 12, 1.2), { letterSpacing: 0.8, color: 'rgba(255,255,255,0.6)' }]}>{etaLabel}</Txt>
@@ -275,12 +237,6 @@ const styles = StyleSheet.create({
   back: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 14, paddingHorizontal: 17, paddingBottom: 120, gap: 10 },
 
-  map: { height: 200, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E3E7DC', backgroundColor: '#EEF1E9' },
-  mapPill: { position: 'absolute', top: 10, left: 11, height: 24, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 10 },
-  mapDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: LIME },
-  mapRoute: { position: 'absolute', bottom: 10, left: 10, color: '#7A857A' },
-  zoomStack: { position: 'absolute', bottom: 11, right: 13, gap: 7 },
-  zoom: { width: 28, height: 28, borderWidth: 1, borderColor: '#E3E7DC', borderRadius: 7, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
 
   eta: { height: 57, borderRadius: 10, backgroundColor: C.forest, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
 

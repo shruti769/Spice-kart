@@ -202,7 +202,7 @@ export default function OffersScreen() {
           </>
         )}
         <Txt style={[f(400, 12, 1.6), styles.note]}>
-          One coupon per order. Offers cannot be combined with Spice Kart Money cashback unless stated.
+          One coupon per order.
         </Txt>
       </ScrollView>
 

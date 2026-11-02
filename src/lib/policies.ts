@@ -11,26 +11,26 @@ export type Policy = {
 export const POLICIES: Record<PolicyId, Policy> = {
   terms: {
     title: 'Terms of Service',
-    updated: '12 Aug 2026',
+    updated: '2 Nov 2026',
     intro: 'The agreement between you and Spice Kart when you create an account, browse or place an order.',
     sections: [
       {
         heading: 'Your account',
         body: [
           'You must be 18 or older to hold an account. Keep your login details private — you are responsible for orders placed from your account.',
-          'We may suspend accounts used for fraud, abuse of promotions or harassment of our shoppers and drivers.',
+          'We may suspend accounts used for fraud, abuse of promotions or harassment of our team.',
         ],
       },
       {
         heading: 'Placing an order',
         body: [
-          'An order is confirmed once payment is authorised. Prices and availability may change until picking starts; we will always show the final amount before charging you.',
+          'Your order is placed once payment is successful. You pay the total shown at checkout. If an item is unavailable, we refund you for it.',
         ],
       },
       {
         heading: 'Age-restricted items',
         body: [
-          'Some items require ID on delivery. If valid ID cannot be shown, the driver will return those items and they will be refunded.',
+          'Some items require ID on delivery. If valid ID cannot be shown, our team will return those items and they will be refunded.',
         ],
       },
       {
@@ -43,7 +43,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   privacy: {
     title: 'Privacy Policy',
-    updated: '3 Sep 2026',
+    updated: '2 Nov 2026',
     intro: 'What personal data we collect, why we use it, and the choices you have.',
     sections: [
       {
@@ -59,7 +59,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
       },
       {
         heading: 'Sharing',
-        body: ['Shoppers and drivers see only what they need to deliver your order. We never sell your personal data.'],
+        body: ['Our team sees only what they need to deliver your order. We never sell your personal data.'],
       },
       {
         heading: 'Your choices',
@@ -71,13 +71,13 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   refund: {
     title: 'Refund & Cancellation',
-    updated: '24 Aug 2026',
+    updated: '2 Nov 2026',
     intro: 'When you can cancel for free, how refunds are paid and how to report a problem.',
     sections: [
       {
         heading: 'Cancelling an order',
         body: [
-          'You may cancel free of charge until your shopper begins picking. After that, a restocking fee of up to $4.95 may apply to fresh and chilled items.',
+          'You may cancel free of charge until our team begins picking. After that, a restocking fee of up to $4.95 may apply to fresh and chilled items.',
           'Orders already out for delivery cannot be cancelled in the app — contact support and we will help where possible.',
         ],
       },
@@ -103,7 +103,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   delivery: {
     title: 'Delivery Policy',
-    updated: '19 Sep 2026',
+    updated: '2 Nov 2026',
     intro: 'Delivery windows, coverage areas, fees and what happens if a delivery fails.',
     sections: [
       {
@@ -121,7 +121,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
       {
         heading: 'Failed deliveries',
         body: [
-          'Drivers wait 5 minutes and try to call you. If Leave at door is on, we leave the order and send a photo. Otherwise you can arrange one free redelivery.',
+          'Our team waits 5 minutes and tries to call you. If we can’t reach you, please contact support to arrange delivery.',
         ],
       },
       {
@@ -132,19 +132,13 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   payment: {
     title: 'Payment Policy',
-    updated: '8 Sep 2026',
-    intro: 'How and when you are charged, temporary holds and receipts.',
+    updated: '2 Nov 2026',
+    intro: 'How and when you are charged, and the payment methods we accept.',
     sections: [
       {
         heading: 'When you are charged',
         body: [
-          'We place a hold for the estimated total when you order, then charge the final amount once your shopper finishes picking.',
-        ],
-      },
-      {
-        heading: 'Holds',
-        body: [
-          'Holds may be up to 10% above the estimate to cover weighed items. Any unused hold is released by your bank within 3–5 days.',
+          'You pay the full order total when you place your order. If an item is unavailable or an order is cancelled, we refund you.',
         ],
       },
       {
@@ -153,16 +147,12 @@ export const POLICIES: Record<PolicyId, Policy> = {
           'Visa, Mastercard, Amex, Apple Pay, Google Pay and Spice Kart Money. Cash on delivery is not available.',
         ],
       },
-      {
-        heading: 'Receipts',
-        body: ['A tax invoice is emailed after every delivery and is available in the order screen.'],
-      },
     ],
   },
   wallet: {
     title: 'Wallet Terms',
-    updated: '19 Sep 2026',
-    intro: 'Rules for Spice Kart Money: top-ups, cashback, refunds and withdrawals.',
+    updated: '2 Nov 2026',
+    intro: 'Rules for Spice Kart Money: your balance and top-ups.',
     sections: [
       {
         heading: 'Your balance',
@@ -172,26 +162,14 @@ export const POLICIES: Record<PolicyId, Policy> = {
       },
       {
         heading: 'Top-ups',
-        body: ['Top up from $10 to $500 at a time by card. The maximum balance is $2,000.'],
-      },
-      {
-        heading: 'Cashback',
-        body: [
-          'Pay a full order with your wallet to earn 5% cashback, capped at $10 per order. Cashback can be spent but not withdrawn.',
-        ],
-      },
-      {
-        heading: 'Withdrawals',
-        body: [
-          'Top-ups and refunds can be withdrawn to an Australian bank account free of charge, usually within 1–2 business days.',
-        ],
+        body: ['Top up from $5 to $500 at a time by card.'],
       },
     ],
   },
   promo: {
     title: 'Promotional Terms',
-    updated: '1 Sep 2026',
-    intro: 'How coupons, offers and referral rewards work, and who is eligible.',
+    updated: '2 Nov 2026',
+    intro: 'How coupons and offers work, and who is eligible.',
     sections: [
       {
         heading: 'Coupons',
@@ -206,14 +184,8 @@ export const POLICIES: Record<PolicyId, Policy> = {
         ],
       },
       {
-        heading: 'Referrals',
-        body: [
-          'You and your friend each get $10 of Spice Kart Money once their first order over $40 is delivered. Limited to 20 referrals a year.',
-        ],
-      },
-      {
         heading: 'Misuse',
-        body: ['We may cancel rewards gained through duplicate accounts or other misuse of promotions.'],
+        body: ['We may cancel offers gained through duplicate accounts or other misuse of promotions.'],
       },
     ],
   },

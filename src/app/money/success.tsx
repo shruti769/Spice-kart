@@ -19,7 +19,8 @@ import { Grad, Screen, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { LOCAL } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
-import { useApp, useTopUpMethod } from '@/store/app-store';
+import { useWalletStore } from '@/lib/remote-wallet';
+import { useTopUpMethod } from '@/store/app-store';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const CHECK_LEN = 24;
@@ -68,14 +69,17 @@ function SuccessCheck() {
   );
 }
 
+const RECENT_MS = 10 * 60_000;
+
 /** Top-up succeeded (prototype `sMoneySuccess`). */
 export default function MoneySuccessScreen() {
   const pad = usePad();
-  const { amountStr, bal } = useWalletVals();
+  const { amt, amountStr, bal } = useWalletVals();
   const method = useTopUpMethod();
-  const email = useApp((s) => s.user.email);
   // The wallet was already credited on confirm, so the new balance is the current one.
   const newBalance = '$' + bal.toFixed(2);
+  // This top-up's row, once the wallet has reloaded (null if it hasn't: never show an older one).
+  const tx = useWalletStore((s) => s.transactions.find((t) => t.kind === 'topup' && t.amount === amt && Date.now() - new Date(t.createdAt).getTime() < RECENT_MS)) ?? null;
 
   return (
     <Screen>
@@ -123,13 +127,13 @@ export default function MoneySuccessScreen() {
           </View>
 
           <Card>
-            <KV k="Reference" v="SKW-88214" weight={600} />
-            <KV k="Paid with" v={method.short} />
-            <KV k="Date" v="1 Sep 2026, 12:04 PM" last />
+            {tx && <KV k="Reference" v={'SKW-' + tx.id} weight={600} />}
+            <KV k="Paid with" v={method.short} last={!tx} />
+            {tx && <KV k="Date" v={new Date(tx.createdAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })} last />}
           </Card>
 
           <Txt style={[f(400, 10, 1.6), { color: C.muted3, textAlign: 'center' }]}>
-            {email ? 'A receipt has been emailed to ' + email : 'Your receipt is saved in Spice Kart Money'}
+            This top-up is saved in your Spice Kart Money activity
           </Txt>
         </Animated.View>
       </ScrollView>

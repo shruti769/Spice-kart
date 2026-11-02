@@ -59,7 +59,7 @@ export default function MoneyScreen() {
               {walletStr}
             </Txt>
             <Txt style={[f(400, 10.5, 1.5), { color: 'rgba(255,255,255,0.62)' }]}>
-              Use at checkout on any order. Refunds and cashback land here instantly.
+              Use at checkout on any order, including refunds to your wallet.
             </Txt>
           </Grad>
         </View>

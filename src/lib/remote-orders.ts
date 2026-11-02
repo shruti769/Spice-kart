@@ -129,6 +129,15 @@ export async function placeOrder(input: {
     throw new OrderError(code ?? 'network', detail ?? '');
   }
   const placed = data as { id: string; number: string; total: number | string };
+  // Delivery instructions go on the order for the admin. The order itself is already safe, so a
+  // failure here is only reported, never treated as a failed order.
+  if (input.address.notes) {
+    const note = await supabase.rpc('set_order_delivery_note', { p_order: placed.id, p_note: input.address.notes });
+    if (note.error) {
+      if (__DEV__) console.warn('Could not save delivery instructions:', note.error.message);
+      useApp.getState().flash('Your delivery instructions weren’t saved · please tell support');
+    }
+  }
   refreshOrders();
   return { id: placed.id, no: placed.number, total: Number(placed.total) };
 }

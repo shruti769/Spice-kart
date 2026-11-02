@@ -12,6 +12,10 @@ import { Toggle } from '@/components/ui/toggle';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, cssAngle, f } from '@/constants/theme';
 import { goTab } from '@/lib/nav';
+import { useCoupons } from '@/lib/remote-coupons';
+import { useUnreadNotifications } from '@/lib/remote-notifications';
+import { useOfferTiles } from '@/lib/remote-offers';
+import { useOrders } from '@/lib/remote-orders';
 import { logOut, setServerPref } from '@/lib/remote-privacy';
 import { brandName, greetingName, useApp, useDefaultCard, usePref, useTotals } from '@/store/app-store';
 
@@ -141,7 +145,13 @@ function Stat({ n, label, onPress }: { n: string | number; label: string; onPres
 export default function ProfileScreen() {
   const pad = usePad();
   const { walletStr } = useWalletVals();
-  const orderCount = useApp((s) => (s.order ? 3 : 2));
+  const { orders, loaded: ordersLoaded } = useOrders();
+  const { coupons } = useCoupons();
+  const { deals, bank } = useOfferTiles();
+  const unreadNotifications = useUnreadNotifications();
+  // The orders list stops at the latest 50.
+  const orderCount = !ordersLoaded ? '–' : orders.length >= 50 ? '50+' : orders.length;
+  const offersLive = coupons.length + deals.length + bank.length;
   const { n: inCart } = useTotals();
   const sens = usePref('sens', true);
   const push = usePref('push', true);
@@ -167,7 +177,7 @@ export default function ProfileScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: pad.bottom(30) + 90 }]} showsVerticalScrollIndicator={false}>
         <View style={styles.stats}>
           <Stat n={orderCount} label="Orders" onPress={() => goTab('orders')} />
-          <Stat n={6} label="Offers live" onPress={() => router.push('/offers')} />
+          <Stat n={offersLive} label="Offers live" onPress={() => router.push('/offers')} />
           <Stat n={inCart} label="In cart" onPress={() => router.push('/cart')} />
         </View>
 
@@ -189,7 +199,7 @@ export default function ProfileScreen() {
               </Tap>
             </View>
             <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 10.5, 1.3), { color: 'rgba(255,255,255,0.65)' }]}>
-              Refunds and cashback land here instantly and apply at checkout.
+              Refunds to your wallet can be used at checkout.
             </Txt>
           </Grad>
         </View>
@@ -197,7 +207,8 @@ export default function ProfileScreen() {
         <Section label="YOUR ACCOUNT">
           <Row icon="person" title="Personal details" value={user.first.trim() ? user.first.trim() + ' ' + (user.last.trim()[0] ?? '') : 'Add your name'} href="/profile/personal" />
           <Row icon="pin" title="Saved addresses" value={savedCount + " saved"} href="/addresses" />
-          <Row icon="card" title="Payment methods" value={card ? brandName(card) + ' · ' + card.last4 : 'Add a card'} href="/payments" last />
+          <Row icon="card" title="Payment methods" value={card ? brandName(card) + ' · ' + card.last4 : 'Add a card'} href="/payments" />
+          <Row icon="bell" title="Notification inbox" value={unreadNotifications ? unreadNotifications + ' new' : ''} href="/notifications" last />
         </Section>
 
         <Section label="PRIVACY & PREFERENCES">

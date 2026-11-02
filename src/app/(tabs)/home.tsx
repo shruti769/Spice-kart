@@ -14,6 +14,7 @@ import { goTab, openCategory } from '@/lib/nav';
 import { refreshBanners, useBanners } from '@/lib/remote-banners';
 import { refreshCatalog, useCategories, useProducts } from '@/lib/remote-catalog';
 import { useDeliverySettings } from '@/lib/remote-delivery';
+import { useUnreadNotifications } from '@/lib/remote-notifications';
 import { shortBalance } from '@/lib/remote-wallet';
 import { newSeed, shuffled } from '@/lib/shuffle';
 import { initialsOf, useAddress, useApp, usePref } from '@/store/app-store';
@@ -126,6 +127,7 @@ export default function HomeScreen() {
   };
   const products = shuffled(useProducts(), seed);
   const { etaMinutes: eta } = useDeliverySettings();
+  const unreadNotifications = useUnreadNotifications();
   const categories = shuffled(useCategories(), seed);
   const topBanners = useBanners('home_top');
   const middleBanners = useBanners('home_middle');
@@ -157,15 +159,18 @@ export default function HomeScreen() {
               <DollarIcon />
               <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>{walletStr}</Txt>
             </Tap>
-            <Tap accessibilityLabel="Account" onPress={() => router.push('/profile')} style={styles.avatar}>
-              {user.avatar ? (
-                <Image source={{ uri: user.avatar }} contentFit="cover" style={StyleSheet.absoluteFill} />
-              ) : initialsOf(user) ? (
-                <Txt style={[f(700, 14, 1.2), { color: C.lime }]}>{initialsOf(user)}</Txt>
-              ) : (
-                <PersonIcon size={18} color={C.lime} />
-              )}
-            </Tap>
+            <View>
+              <Tap accessibilityLabel={unreadNotifications ? 'Account, new notifications' : 'Account'} onPress={() => router.push('/profile')} style={styles.avatar}>
+                {user.avatar ? (
+                  <Image source={{ uri: user.avatar }} contentFit="cover" style={StyleSheet.absoluteFill} />
+                ) : initialsOf(user) ? (
+                  <Txt style={[f(700, 14, 1.2), { color: C.lime }]}>{initialsOf(user)}</Txt>
+                ) : (
+                  <PersonIcon size={18} color={C.lime} />
+                )}
+              </Tap>
+              {unreadNotifications > 0 && <View pointerEvents="none" style={styles.unreadDot} />}
+            </View>
           </View>
         </View>
         <Tap onPress={() => goTab('search')} style={styles.search}>
@@ -258,6 +263,7 @@ const styles = StyleSheet.create({
   headerActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 34, paddingHorizontal: 11, borderRadius: 9, borderWidth: 1, borderColor: '#C8DFA4', backgroundColor: 'rgba(255,255,255,0.8)' },
   avatar: { width: 34, height: 34, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#2B4F30', backgroundColor: C.greenDeep, alignItems: 'center', justifyContent: 'center' },
+  unreadDot: { position: 'absolute', top: -3, right: -3, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: '#fff', backgroundColor: C.danger },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 42, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#fff' },
   searchText: { flex: 1, minWidth: 0, color: C.muted2 },
 

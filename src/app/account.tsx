@@ -193,7 +193,7 @@ export default function AccountScreen() {
             </Tap>
           </View>
           <Txt style={[f(400, 10.5, 1.5), { color: 'rgba(255,255,255,0.6)' }]}>
-            Refunds and cashback land here instantly and apply at checkout.
+            Refunds to your wallet can be used at checkout.
           </Txt>
         </Grad>
 

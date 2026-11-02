@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import type { NotificationResponse } from 'expo-notifications';
 import { router } from 'expo-router';
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, AppState, Linking, Platform } from 'react-native';
 
 import { findCategory } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
@@ -114,7 +114,7 @@ export async function unregisterPush() {
 }
 
 /** Where a tapped notification goes (`link` from the admin: order:, support:, category:, page:). */
-function openLink(link: unknown) {
+export function openLink(link: unknown) {
   const [kind, value = ''] = typeof link === 'string' ? link.split(/:(.*)/s) : [];
   switch (kind) {
     case 'order':
@@ -173,6 +173,10 @@ export async function setServerPref(k: ServerPref, on: boolean) {
         { text: 'Not now', style: 'cancel' },
         { text: 'Open Settings', onPress: () => Linking.openSettings() },
       ]);
+      return;
+    }
+    if (r === 'failed') {
+      flash('Couldn’t turn on notifications. Please try again');
       return;
     }
     if (r === 'unsupported') flash('Push works on a phone with the Spice Kart app installed');
@@ -254,4 +258,9 @@ export function startRemotePrivacy() {
       if (pref('push')) registerPush({ ask: false });
     });
   }
+  // Retry when the app returns to the front: the last try may have failed (offline), or the user
+  // may have just allowed notifications in Settings.
+  AppState.addEventListener('change', (s) => {
+    if (s === 'active' && useApp.getState().signedIn && pref('push') && !pushToken) registerPush({ ask: false });
+  });
 }

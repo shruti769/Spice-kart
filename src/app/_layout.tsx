@@ -19,7 +19,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toast } from '@/components/overlays';
 import { PhotoSourceSheet } from '@/components/photo-source-sheet';
 import { C } from '@/constants/theme';
+import { startRemoteAddresses } from '@/lib/remote-addresses';
 import { startRemoteBanners } from '@/lib/remote-banners';
+import { startRemoteNotifications } from '@/lib/remote-notifications';
+import { startRemoteRefunds } from '@/lib/remote-refunds';
 import { startRemoteCatalog } from '@/lib/remote-catalog';
 import { startRemoteCoupons } from '@/lib/remote-coupons';
 import { startRemoteDelivery } from '@/lib/remote-delivery';
@@ -58,6 +61,9 @@ startRemoteHelp();
 startRemoteSupport();
 startRemoteWallet();
 startRemoteCards();
+startRemoteAddresses();
+startRemoteRefunds();
+startRemoteNotifications();
 
 function PaymentRedirect() {
   const { handleURLCallback } = useStripe();

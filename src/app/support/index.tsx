@@ -6,6 +6,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { useOrders, type Order } from '@/lib/remote-orders';
+import { useRefundStore, type RefundRequest } from '@/lib/remote-refunds';
 import { useSupportTickets, type Ticket } from '@/lib/remote-support';
 import { useApp } from '@/store/app-store';
 
@@ -38,6 +39,12 @@ function ticketSub(t: Ticket) {
   return `${t.number} · ${state} · ${when}`;
 }
 
+/** "Under review", "Approved · $12.50", "Refunded · $12.50" or "Declined". */
+function refundSub(r: RefundRequest) {
+  const amount = r.amount == null ? '' : ` · $${r.amount.toFixed(2)}`;
+  return { pending: 'Under review', approved: 'Approved' + amount, paid: 'Refunded' + amount, rejected: 'Declined' }[r.status];
+}
+
 function Badge({ children }: { children: string }) {
   return (
     <Txt
@@ -56,6 +63,7 @@ export default function SupportScreen() {
   const flash = useApp((s) => s.flash);
   const { orders } = useOrders();
   const { tickets } = useSupportTickets();
+  const { refunds } = useRefundStore();
   const recent = orders[0] ?? null;
   const openChat = tickets.find((t) => t.status !== 'resolved');
   const unread = tickets.filter((t) => t.unread).length;
@@ -163,6 +171,22 @@ export default function SupportScreen() {
                 right={t.unread ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.lime }} /> : undefined}
                 chevron
                 onPress={() => router.push({ pathname: '/support/chat', params: { ticket: t.id } })}
+              />
+            ))}
+          </Section>
+        )}
+
+        {refunds.length > 0 && (
+          <Section title="YOUR REFUNDS">
+            {refunds.slice(0, 5).map((r) => (
+              <Row
+                key={r.id}
+                icon="refund"
+                title={r.orderNo ? `${r.number} · Order #${r.orderNo}` : r.number}
+                sub={refundSub(r)}
+                subNoWrap
+                onPress={() => router.push({ pathname: '/track', params: { id: r.orderId } })}
+                chevron
               />
             ))}
           </Section>
