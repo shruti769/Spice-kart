@@ -11,7 +11,7 @@ import { money } from '@/data/catalog';
 import { goBack, resetTo } from '@/lib/nav';
 import { refreshCatalog } from '@/lib/remote-catalog';
 import { refreshConfig, useStoreConfig } from '@/lib/remote-config';
-import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useClosedToday, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
 import { getDeviceFix, type DeviceFix } from '@/lib/location';
 import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
 import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
@@ -122,7 +122,9 @@ export default function CheckoutScreen() {
 
   const [placing, setPlacing] = useState(false);
   // Admin → Settings: opening hours, minimum order, payment methods switched on.
-  const config = useStoreConfig();
+  const storeConfig = useStoreConfig();
+  const closedToday = useClosedToday();
+  const config = { ...storeConfig, open: storeConfig.open && !closedToday };
   const payDefs = PAY_DEFS.filter(([key]) => offered(key, config.paymentMethods));
   const short = config.minOrder > 0 && t.sub < config.minOrder ? config.minOrder - t.sub : 0;
   const closedNote = 'Closed' + (config.opens ? ' · ' + config.opens : '');

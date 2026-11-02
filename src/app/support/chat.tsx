@@ -223,7 +223,7 @@ export default function SupportChatScreen() {
 
   const status = ticket?.status;
   const subtitle = isNew
-    ? 'Our Melbourne team usually replies in minutes'
+    ? 'Our team will reply here'
     : status === 'resolved'
       ? 'Chat resolved · send a message to reopen'
       : agentName

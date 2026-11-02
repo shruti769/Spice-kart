@@ -7,18 +7,18 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 // The store(s) customers buy from, as set in Admin → Settings → General (`public.stores`; RLS
 // returns active ones). Live: the admin's edits bump `app_changes` ('stores').
 
-export type StoreInfo = { id: string; name: string; suburb: string; phone: string | null; isPrimary: boolean };
+export type StoreInfo = { id: string; name: string; suburb: string; phone: string | null; email: string | null; isPrimary: boolean };
 
 export const useStoreStore = create<{ stores: StoreInfo[] }>(() => ({ stores: [] }));
 
 const loadStores = singleFlight(async () => {
-  const { data, error } = await supabase.from('stores').select('id, name, suburb, support_phone, is_primary');
+  const { data, error } = await supabase.from('stores').select('id, name, suburb, support_phone, support_email, is_primary');
   if (error) {
     if (__DEV__) console.warn('Could not load store details:', error.message);
     return;
   }
   useStoreStore.setState({
-    stores: data.map((r) => ({ id: r.id, name: r.name, suburb: r.suburb ?? '', phone: r.support_phone || null, isPrimary: !!r.is_primary })),
+    stores: data.map((r) => ({ id: r.id, name: r.name, suburb: r.suburb ?? '', phone: r.support_phone || null, email: r.support_email || null, isPrimary: !!r.is_primary })),
   });
 });
 

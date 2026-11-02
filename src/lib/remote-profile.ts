@@ -1,4 +1,6 @@
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { File } from 'expo-file-system';
+import { AppState } from 'react-native';
 
 import { ensureBackendSession } from '@/lib/firebase-auth';
 import { normalizeProfileMobile, toInternationalPhone } from '@/lib/phone';
@@ -177,16 +179,50 @@ const loadProfile = singleFlight(async () => {
   }
 });
 
+let channel: RealtimeChannel | null = null;
+
+/** Live-update the profile when it changes elsewhere: the admin's edits or another phone. */
+async function subscribe() {
+  if (channel) return;
+  try {
+    const uid = await ensureUserId();
+    if (channel || !useApp.getState().signedIn) return;
+    channel = supabase
+      .channel('my-profile')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` }, () => loadProfile())
+      .subscribe();
+  } catch {
+    // Retried on the next sign-in.
+  }
+}
+
+function unsubscribe() {
+  if (channel) supabase.removeChannel(channel);
+  channel = null;
+}
+
 let started = false;
 
-/** Sync the profile whenever the user signs in (or launches signed in); sign out of Supabase on log out. */
+/** Sync the profile whenever the user signs in (or launches signed in) and on foreground, live-update it, and sign out of Supabase on log out. */
 export function startRemoteProfile() {
   if (started || !isSupabaseConfigured) return;
   started = true;
   // Also fires when the saved state is restored on launch (signedIn goes false → true).
   useApp.subscribe((s, prev) => {
-    if (s.signedIn && !prev.signedIn) loadProfile();
-    if (!s.signedIn && prev.signedIn) supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    if (s.signedIn && !prev.signedIn) {
+      loadProfile();
+      subscribe();
+    }
+    if (!s.signedIn && prev.signedIn) {
+      unsubscribe();
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    }
   });
-  if (useApp.persist.hasHydrated() && useApp.getState().signedIn) loadProfile();
+  if (useApp.persist.hasHydrated() && useApp.getState().signedIn) {
+    loadProfile();
+    subscribe();
+  }
+  AppState.addEventListener('change', (s) => {
+    if (s === 'active' && useApp.getState().signedIn) loadProfile();
+  });
 }

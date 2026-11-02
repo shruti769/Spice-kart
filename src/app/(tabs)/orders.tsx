@@ -7,7 +7,7 @@ import { Photo, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, cardShadow, f } from '@/constants/theme';
 import { REMOTE_PREFIX, findProduct, money } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
-import { isActiveOrder, useOrders, type Order, type OrderStatus } from '@/lib/remote-orders';
+import { isActiveOrder, refreshOrders, useOrderStore, useOrders, type Order, type OrderStatus } from '@/lib/remote-orders';
 import { useApp, usePref } from '@/store/app-store';
 
 type OrderRow = {
@@ -123,7 +123,7 @@ export default function OrdersScreen() {
   const pad = usePad();
   const tab = useApp((s) => s.ordersTab);
   const set = useApp((s) => s.set);
-  const { orders, loaded } = useOrders();
+  const { orders, loaded, failed } = useOrders();
 
   const list = orders.filter((o) => isActiveOrder(o) === (tab === 'Active')).map(toRow);
 
@@ -153,8 +153,24 @@ export default function OrdersScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}>
         <Animated.View key={tab} entering={FadeIn.duration(180)} style={{ gap: 10 }}>
-          {!loaded && list.length === 0 && (
+          {!loaded && !failed && list.length === 0 && (
             <Txt style={[f(400, 12.5, 1.5), { color: C.muted, textAlign: 'center', paddingVertical: 70 }]}>Loading your orders…</Txt>
+          )}
+          {!loaded && failed && list.length === 0 && (
+            <View style={{ alignItems: 'center', gap: 8, paddingVertical: 70, paddingHorizontal: 20 }}>
+              <Txt style={[f(700, 15.5, 1.3), { textAlign: 'center' }]}>Couldn’t load your orders</Txt>
+              <Txt style={[f(400, 12.5, 1.5), { color: C.muted, maxWidth: 240, textAlign: 'center' }]}>
+                Please check your connection and try again.
+              </Txt>
+              <Tap
+                onPress={() => {
+                  useOrderStore.setState({ failed: false });
+                  refreshOrders();
+                }}
+                style={{ marginTop: 6, height: 38, paddingHorizontal: 18, borderRadius: 8, backgroundColor: C.forest, justifyContent: 'center' }}>
+                <Txt style={[f(600, 12.5, 1), { color: '#fff' }]}>Try again</Txt>
+              </Tap>
+            </View>
           )}
           {loaded && list.length === 0 && (
             <View style={{ alignItems: 'center', gap: 8, paddingVertical: 70, paddingHorizontal: 20 }}>

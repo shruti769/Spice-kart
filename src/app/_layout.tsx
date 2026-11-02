@@ -21,6 +21,7 @@ import { PhotoSourceSheet } from '@/components/photo-source-sheet';
 import { C } from '@/constants/theme';
 import { startRemoteAddresses } from '@/lib/remote-addresses';
 import { startRemoteBanners } from '@/lib/remote-banners';
+import { startRemoteHomeContent } from '@/lib/remote-home-content';
 import { startRemoteNotifications } from '@/lib/remote-notifications';
 import { startRemoteRefunds } from '@/lib/remote-refunds';
 import { startRemoteCatalog } from '@/lib/remote-catalog';
@@ -64,6 +65,7 @@ startRemoteCards();
 startRemoteAddresses();
 startRemoteRefunds();
 startRemoteNotifications();
+startRemoteHomeContent();
 
 function PaymentRedirect() {
   const { handleURLCallback } = useStripe();

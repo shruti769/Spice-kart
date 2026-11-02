@@ -42,23 +42,29 @@ const DEFAULTS: DeliverySettings = {
   cutoffMinutes: 60,
 };
 
-export const useDeliveryStore = create<{ settings: DeliverySettings; slots: DeliverySlot[] }>(() => ({
+/** A closed date from Admin → Settings. No slot ids = the whole day, express included. */
+export type ClosedDate = { date: string; slotIds: string[] };
+
+export const useDeliveryStore = create<{ settings: DeliverySettings; slots: DeliverySlot[]; closedDates: ClosedDate[] }>(() => ({
   settings: DEFAULTS,
   slots: [],
+  closedDates: [],
 }));
 
 const loadDelivery = singleFlight(async () => {
-  const [settings, slots] = await Promise.all([
+  const [settings, slots, closed] = await Promise.all([
     supabase.from('delivery_settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('delivery_slots').select('id, weekday, start_min, end_min, fee').eq('active', true).order('start_min'),
+    supabase.from('delivery_date_overrides').select('date, closed_slot_ids'),
   ]);
-  const error = settings.error ?? slots.error;
+  const error = settings.error ?? slots.error ?? closed.error;
   if (error) {
     if (__DEV__) console.warn('Could not load delivery settings:', error.message);
     return;
   }
   const s = settings.data;
   useDeliveryStore.setState({
+    closedDates: (closed.data ?? []).map((r) => ({ date: r.date, slotIds: r.closed_slot_ids ?? [] })),
     settings: s
       ? {
           expressFee: Number(s.express_fee),
@@ -89,7 +95,7 @@ export function startRemoteDelivery() {
   AppState.addEventListener('change', (s) => {
     if (s === 'active') refreshDelivery();
   });
-  onTableChange(['delivery_settings', 'delivery_slots'], refreshDelivery);
+  onTableChange(['delivery_settings', 'delivery_slots', 'delivery_date_overrides'], refreshDelivery);
 }
 
 /** Live delivery settings (fees, express ETA …). */
@@ -144,7 +150,7 @@ export const slotFee = (slot: DeliverySlot, settings: DeliverySettings) => slot.
  * slots that are still open (not past the booking cut-off). Days with no open slots are left out.
  */
 export function scheduleDays(
-  { settings, slots }: { settings: DeliverySettings; slots: DeliverySlot[] },
+  { settings, slots, closedDates }: { settings: DeliverySettings; slots: DeliverySlot[]; closedDates: ClosedDate[] },
   now = new Date(),
 ): ScheduleDay[] {
   const out: ScheduleDay[] = [];
@@ -153,7 +159,9 @@ export function scheduleDays(
   for (let i = 0; i <= settings.bookAheadDays; i++, d.setUTCDate(d.getUTCDate() + 1)) {
     // Minutes from today's midnight at the store until this day's midnight.
     const dayStart = i * 1440;
-    const open = slots.filter((s) => s.weekday === weekdayOf(d) && dayStart + s.start - settings.cutoffMinutes > minutes);
+    const closed = closedDates.find((c) => c.date === toISO(d));
+    if (closed && !closed.slotIds.length) continue;
+    const open = slots.filter((s) => s.weekday === weekdayOf(d) && dayStart + s.start - settings.cutoffMinutes > minutes && !closed?.slotIds.includes(s.id));
     if (!open.length) continue;
     out.push({
       date: toISO(d),
@@ -180,7 +188,14 @@ export function useScheduleDays() {
   const now = useNow();
   const settings = useDeliveryStore((s) => s.settings);
   const slots = useDeliveryStore((s) => s.slots);
-  return scheduleDays({ settings, slots }, now);
+  const closedDates = useDeliveryStore((s) => s.closedDates);
+  return scheduleDays({ settings, slots, closedDates }, now);
+}
+
+/** Whether the admin has closed the whole of today, so express isn't available either. */
+export function useClosedToday() {
+  const today = toISO(storeNow(new Date()).today);
+  return useDeliveryStore((s) => s.closedDates.some((c) => c.date === today && !c.slotIds.length));
 }
 
 /** The slot `slotId` on `date` if it can still be booked. */

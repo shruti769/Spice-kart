@@ -224,7 +224,7 @@ export default function ProfileScreen() {
 
         <Section label="HELP & SUPPORT">
           <Row icon="help" title="Help centre" value="FAQs & guides" href="/help" />
-          <Row icon="chat" title="Contact support" value="24/7" href="/support" />
+          <Row icon="chat" title="Contact support" href="/support" />
           <Row icon="doc" title="Terms & policies" href="/terms" last />
         </Section>
 

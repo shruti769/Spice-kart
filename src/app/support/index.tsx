@@ -7,6 +7,7 @@ import { Screen, Tap, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { useOrders, type Order } from '@/lib/remote-orders';
 import { useRefundStore, type RefundRequest } from '@/lib/remote-refunds';
+import { useStore } from '@/lib/remote-store';
 import { useSupportTickets, type Ticket } from '@/lib/remote-support';
 import { useApp } from '@/store/app-store';
 
@@ -64,6 +65,7 @@ export default function SupportScreen() {
   const { orders } = useOrders();
   const { tickets } = useSupportTickets();
   const { refunds } = useRefundStore();
+  const store = useStore();
   const recent = orders[0] ?? null;
   const openChat = tickets.find((t) => t.status !== 'resolved');
   const unread = tickets.filter((t) => t.unread).length;
@@ -71,7 +73,7 @@ export default function SupportScreen() {
 
   return (
     <Screen>
-      <ScreenHeader variant="tint" title="Contact support" subtitle="Melbourne team · online now" />
+      <ScreenHeader variant="tint" title="Contact support" subtitle="We’re here to help" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 12, paddingHorizontal: 14, paddingBottom: 20, gap: 12 }}
@@ -100,7 +102,7 @@ export default function SupportScreen() {
           </View>
           <View style={{ gap: 3, flexShrink: 1 }}>
             <Txt numberOfLines={1} style={[f(600, 12.5, 1.2), { color: C.forest }]}>
-              Average reply time: 1 min
+              Chat with our team
             </Txt>
             <Txt numberOfLines={1} style={[f(400, 10.5, 1.3), { color: '#5F6B57' }]}>
               Live chat is the fastest way to reach us
@@ -116,29 +118,32 @@ export default function SupportScreen() {
             weight={600}
             subNoWrap
             padV={12}
-            right={<Badge>{unread ? `${unread} new` : openChat ? 'Open' : '~1 min'}</Badge>}
+            right={unread || openChat ? <Badge>{unread ? `${unread} new` : 'Open'}</Badge> : undefined}
             onPress={() => router.push('/support/chat')}
           />
-          <Row
-            icon="mail"
-            title="Email support"
-            sub="help@spicekart.com.au"
-            weight={600}
-            subNoWrap
-            padV={12}
-            right={<Badge>~4 hrs</Badge>}
-            onPress={() => Linking.openURL('mailto:help@spicekart.com.au?subject=Help%20with%20my%20order').catch(() => flash('No email app found'))}
-          />
-          <Row
-            icon="phone"
-            title="Call support"
-            sub="1800 774 235 · free call"
-            weight={600}
-            subNoWrap
-            padV={12}
-            right={<Badge>24/7</Badge>}
-            onPress={() => Linking.openURL('tel:1800774235').catch(() => flash('Calling is not available on this device'))}
-          />
+          {/* Email and phone exactly as saved in Admin → Settings → General (live). */}
+          {!!store?.email && (
+            <Row
+              icon="mail"
+              title="Email support"
+              sub={store.email}
+              weight={600}
+              subNoWrap
+              padV={12}
+              onPress={() => Linking.openURL(`mailto:${store.email}?subject=Help%20with%20my%20order`).catch(() => flash('No email app found'))}
+            />
+          )}
+          {!!store?.phone && (
+            <Row
+              icon="phone"
+              title="Call support"
+              sub={store.phone}
+              weight={600}
+              subNoWrap
+              padV={12}
+              onPress={() => Linking.openURL('tel:' + store.phone!.replace(/[^\d+]/g, '')).catch(() => flash('Calling is not available on this device'))}
+            />
+          )}
         </Section>
 
         <Section title="SELF SERVICE">

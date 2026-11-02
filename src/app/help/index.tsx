@@ -182,7 +182,7 @@ export default function HelpScreen() {
               Still need a hand?
             </Txt>
             <Txt numberOfLines={1} style={[f(400, 10.5, 1.2), { color: 'rgba(255,255,255,0.66)' }]}>
-              Our Melbourne team is online 24/7
+              Contact our support team
             </Txt>
           </View>
           <Tap

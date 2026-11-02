@@ -4,17 +4,20 @@ import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { Announcements } from '@/components/announcements';
 import { ChevronDown, PersonIcon, SearchIcon } from '@/components/icons';
 import { ProductCard } from '@/components/product-card';
 import { FeatureBanner, PromoBanner } from '@/components/promo-banner';
 import { Grad, Grid, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
-import { findProduct, LOCAL, type Category, type Product } from '@/data/catalog';
+import { LOCAL, REMOTE_PREFIX, type Category, type Product } from '@/data/catalog';
 import { goTab, openCategory } from '@/lib/nav';
 import { refreshBanners, useBanners } from '@/lib/remote-banners';
 import { refreshCatalog, useCategories, useProducts } from '@/lib/remote-catalog';
 import { useDeliverySettings } from '@/lib/remote-delivery';
+import { useHomeContent } from '@/lib/remote-home-content';
 import { useUnreadNotifications } from '@/lib/remote-notifications';
+import { useOrders } from '@/lib/remote-orders';
 import { shortBalance } from '@/lib/remote-wallet';
 import { newSeed, shuffled } from '@/lib/shuffle';
 import { initialsOf, useAddress, useApp, usePref } from '@/store/app-store';
@@ -111,7 +114,8 @@ export default function HomeScreen() {
   const address = useAddress();
   const user = useApp((s) => s.user);
   const wallet = useApp((s) => s.wallet);
-  const order = useApp((s) => s.order);
+  const { orders } = useOrders();
+  const collections = useHomeContent((s) => s.collections);
   const personalised = usePref('share', true);
   // Pull to refresh: refetch the catalogue and banners, then show products and categories in a new random order.
   const [seed, setSeed] = useState(0);
@@ -134,8 +138,9 @@ export default function HomeScreen() {
   const featureBanners = useBanners('home_feature');
 
   // All product sections come from Supabase; each is hidden while it has nothing to show.
-  // "Buy again" uses the order history, so it's hidden while personalisation is off.
-  const buyAgain = (personalised ? (order?.itemIds ?? []) : []).map(findProduct).filter((p): p is Product => !!p);
+  // "Buy again" uses the order history (newest first), so it's hidden while personalisation is off.
+  const inStore = (ids: (string | null)[]) => ids.map((id) => products.find((p) => p.id === REMOTE_PREFIX + id)).filter((p): p is Product => !!p);
+  const buyAgain = personalised ? inStore([...new Set(orders.filter((o) => o.status !== 'cancelled').flatMap((o) => o.items.map((i) => i.productId)))]).slice(0, HOME_LIMIT) : [];
   const essentials = products.slice(0, HOME_LIMIT);
   const deals = products.filter((p) => p.orig > p.price).slice(0, 4);
 
@@ -185,6 +190,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.forest} colors={[C.forest]} />}
       >
+        <Announcements />
+
         {categories.length > 0 && <CategoryRail categories={categories} />}
 
         {topBanners.length > 0 && (
@@ -195,10 +202,21 @@ export default function HomeScreen() {
 
         {buyAgain.length > 0 && (
           <>
-            <SectionHead title="Buy again" note="From your last order" />
+            <SectionHead title="Buy again" note="From your past orders" />
             <Rail items={buyAgain} cardWidth={118} />
           </>
         )}
+
+        {collections.map((c) => {
+          const items = inStore(c.productIds);
+          return items.length > 0 ? (
+            <View key={c.id}>
+              <SectionHead title={c.name} note={c.tagline} />
+              {!!c.cover && <Image source={{ uri: c.cover }} contentFit="cover" accessibilityLabel={c.name} style={styles.collectionCover} />}
+              <Rail items={items} cardWidth={118} />
+            </View>
+          ) : null;
+        })}
 
         {middleBanners.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.middleBanners}>
@@ -213,13 +231,6 @@ export default function HomeScreen() {
           </>
         )}
 
-        <Tap onPress={goShop} style={styles.freeDelivery}>
-          <Image source={LOCAL.freeDelivery} contentFit="contain" accessibilityLabel="Free delivery on orders above $199" style={styles.freeDeliveryArt} />
-          <View style={styles.shopNow}>
-            <Txt numberOfLines={1} style={[f(700, 14, 1.2), { color: C.forest }]}>Shop now</Txt>
-          </View>
-        </Tap>
-
         {essentials.length > 0 && (
           <>
             <SectionHead title="Everyday Essentials" link={products.length > HOME_LIMIT ? 'See all' : undefined} onPress={goCats} />
@@ -227,7 +238,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        <Tap onPress={goShop} accessibilityLabel="Brand deals, 31 August to 6 September" style={styles.brandDeals}>
+        <Tap onPress={goShop} accessibilityLabel="Brand deals" style={styles.brandDeals}>
           <Image source={LOCAL.brandDeals} contentFit="cover" style={{ width, aspectRatio: 538 / 585 }} />
         </Tap>
 
@@ -264,6 +275,8 @@ const styles = StyleSheet.create({
   wallet: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 34, paddingHorizontal: 11, borderRadius: 9, borderWidth: 1, borderColor: '#C8DFA4', backgroundColor: 'rgba(255,255,255,0.8)' },
   avatar: { width: 34, height: 34, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#2B4F30', backgroundColor: C.greenDeep, alignItems: 'center', justifyContent: 'center' },
   unreadDot: { position: 'absolute', top: -3, right: -3, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: '#fff', backgroundColor: C.danger },
+  brandDeals: { marginTop: 32 },
+  collectionCover: { height: 130, marginHorizontal: 16, marginBottom: 10, borderRadius: 12, backgroundColor: '#EFF2EA' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 42, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#fff' },
   searchText: { flex: 1, minWidth: 0, color: C.muted2 },
 
@@ -286,10 +299,6 @@ const styles = StyleSheet.create({
   shelf: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.borderCard, borderRadius: 12, padding: 8, paddingBottom: 12, gap: 8 },
   shelfImage: { width: '100%', aspectRatio: 1.4, borderRadius: 8, overflow: 'hidden' },
 
-  freeDelivery: { marginTop: 20, marginHorizontal: 16, height: 89, borderRadius: 10, backgroundColor: '#1B3C22', flexDirection: 'row', alignItems: 'center', paddingLeft: 12, paddingRight: 18, overflow: 'hidden' },
-  freeDeliveryArt: { width: 142, height: 61 },
-  shopNow: { marginLeft: 'auto', height: 30, paddingHorizontal: 16, borderRadius: 6, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
-  brandDeals: { marginTop: 32 },
 
   featureBanners: { marginTop: 28, paddingHorizontal: 16, gap: 12 },
 });

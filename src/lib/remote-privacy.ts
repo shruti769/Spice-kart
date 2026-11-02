@@ -2,6 +2,7 @@ import { phoneAuthError, signOutPhone } from '@/lib/firebase-auth';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import type { NotificationResponse } from 'expo-notifications';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router } from 'expo-router';
 import { Alert, AppState, Linking, Platform } from 'react-native';
 
@@ -238,6 +239,23 @@ export async function logOut() {
   return true;
 }
 
+let channel: RealtimeChannel | null = null;
+
+/** Live-update the opt-ins when they change elsewhere: the admin or another phone. */
+async function subscribeOptIns() {
+  if (channel) return;
+  try {
+    const uid = await ensureUserId();
+    if (channel || !useApp.getState().signedIn) return;
+    channel = supabase
+      .channel('my-customer')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customers', filter: `id=eq.${uid}` }, () => loadOptIns())
+      .subscribe();
+  } catch {
+    // Retried on the next sign-in.
+  }
+}
+
 let started = false;
 
 /** Sync the opt-ins and this phone's push token with the signed-in account. */
@@ -250,17 +268,26 @@ export function startRemotePrivacy() {
       loadOptIns().then(() => {
         if (pref('push')) registerPush({ ask: true });
       });
+      subscribeOptIns();
     }
-    if (!s.signedIn && prev.signedIn) pushToken = null;
+    if (!s.signedIn && prev.signedIn) {
+      pushToken = null;
+      if (channel) supabase.removeChannel(channel);
+      channel = null;
+    }
   });
   if (useApp.persist.hasHydrated() && useApp.getState().signedIn) {
     loadOptIns().then(() => {
       if (pref('push')) registerPush({ ask: false });
     });
+    subscribeOptIns();
   }
-  // Retry when the app returns to the front: the last try may have failed (offline), or the user
-  // may have just allowed notifications in Settings.
+  // Back in front: pick up changed opt-ins, and retry push if the last try failed (offline) or the
+  // user has just allowed notifications in Settings.
   AppState.addEventListener('change', (s) => {
-    if (s === 'active' && useApp.getState().signedIn && pref('push') && !pushToken) registerPush({ ask: false });
+    if (s !== 'active' || !useApp.getState().signedIn) return;
+    loadOptIns().then(() => {
+      if (pref('push') && !pushToken) registerPush({ ask: false });
+    });
   });
 }

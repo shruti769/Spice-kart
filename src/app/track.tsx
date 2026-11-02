@@ -20,7 +20,6 @@ import { useStore } from '@/lib/remote-store';
 import { useApp } from '@/store/app-store';
 
 const LIME = C.lime;
-const SUPPORT_PHONE = '1800774235';
 
 /** The normal flow; the admin moves an order along it (or cancels it). */
 const FLOW: [Exclude<OrderStatus, 'cancelled'>, string][] = [
@@ -125,7 +124,7 @@ function Tracking({ order }: { order: TrackedOrder }) {
   const late = !cancelled && !delivered && !!order.promisedBy && new Date(order.promisedBy) < new Date();
   // Name and phone exactly as the admin saved them (live), for this order's store.
   const store = useStore(order.storeId);
-  const phone = store?.phone || SUPPORT_PHONE;
+  const phone = store?.phone;
 
   const [etaLabel, etaValue] = cancelled
     ? ['ORDER CANCELLED', order.cancelReason || 'If you were charged, the refund is on its way']
@@ -206,19 +205,21 @@ function Tracking({ order }: { order: TrackedOrder }) {
           <Txt numberOfLines={1} style={f(600, 14, 1.25)}>{(store?.name || 'Spice Kart') + ' · your store'}</Txt>
           <Txt numberOfLines={1} style={[f(400, 12.5, 1.25), { color: C.muted }]}>{HEADLINE[order.status]}</Txt>
         </View>
-        <Tap
-          accessibilityLabel="Call the store"
-          onPress={() => Linking.openURL('tel:' + phone.replace(/[^\d+]/g, '')).catch(() => useApp.getState().flash('Calling is not available on this device'))}
-          style={styles.call}>
-          <Svg width={16} height={16} viewBox="0 0 18 18" fill="none">
-            <Path
-              d="M4 3h3l1.4 3.4-2 1.3a9 9 0 004 4l1.3-2L15 11.2V14a1 1 0 01-1.1 1A12 12 0 013 4.1 1 1 0 014 3z"
-              stroke={C.greenDeep}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </Tap>
+        {!!phone && (
+          <Tap
+            accessibilityLabel="Call the store"
+            onPress={() => Linking.openURL('tel:' + phone.replace(/[^\d+]/g, '')).catch(() => useApp.getState().flash('Calling is not available on this device'))}
+            style={styles.call}>
+            <Svg width={16} height={16} viewBox="0 0 18 18" fill="none">
+              <Path
+                d="M4 3h3l1.4 3.4-2 1.3a9 9 0 004 4l1.3-2L15 11.2V14a1 1 0 01-1.1 1A12 12 0 013 4.1 1 1 0 014 3z"
+                stroke={C.greenDeep}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Tap>
+        )}
       </View>
 
       {delivered && (

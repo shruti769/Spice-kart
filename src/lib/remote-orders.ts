@@ -56,18 +56,27 @@ const fromRow = (r: OrderRow): Order => ({
   })),
 });
 
-export const useOrderStore = create<{ orders: Order[]; loaded: boolean }>(() => ({ orders: [], loaded: false }));
+/** `failed`: the last load didn't finish, so the screen can offer a retry instead of waiting forever. */
+export const useOrderStore = create<{ orders: Order[]; loaded: boolean; failed: boolean }>(() => ({ orders: [], loaded: false, failed: false }));
+
+const LOAD_TIMEOUT_MS = 20_000;
 
 const loadOrders = singleFlight(async () => {
   if (!useApp.getState().signedIn) return;
   try {
-    await ensureUserId();
-    // RLS returns only this user's orders.
-    const { data, error } = await supabase.from('orders').select(COLUMNS).order('placed_at', { ascending: false }).limit(50);
+    // A stuck request must not leave the screen on "Loading" forever.
+    const { data, error } = await Promise.race([
+      ensureUserId().then(() =>
+        // RLS returns only this user's orders.
+        supabase.from('orders').select(COLUMNS).order('placed_at', { ascending: false }).limit(50),
+      ),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timed out')), LOAD_TIMEOUT_MS)),
+    ]);
     if (error) throw error;
-    if (useApp.getState().signedIn) useOrderStore.setState({ orders: (data as OrderRow[]).map(fromRow), loaded: true });
+    if (useApp.getState().signedIn) useOrderStore.setState({ orders: (data as OrderRow[]).map(fromRow), loaded: true, failed: false });
   } catch (e) {
     if (__DEV__) console.warn('Could not load orders:', (e as Error).message);
+    useOrderStore.setState({ failed: true });
   }
 });
 
@@ -160,7 +169,7 @@ async function subscribe() {
 function unsubscribe() {
   if (channel) supabase.removeChannel(channel);
   channel = null;
-  useOrderStore.setState({ orders: [], loaded: false });
+  useOrderStore.setState({ orders: [], loaded: false, failed: false });
 }
 
 let started = false;
