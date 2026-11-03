@@ -4,7 +4,7 @@ export type Policy = {
   title: string;
   updated: string;
   intro: string;
-  /** Each section's heading doubles as its chip label; `body` is one entry per paragraph. */
+  /** Each section's heading doubles as its chip label; `body` is one entry per paragraph, and can use the live-value placeholders. */
   sections: { heading: string; body: string[] }[];
 };
 
@@ -103,19 +103,19 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   delivery: {
     title: 'Delivery Policy',
-    updated: '2 Nov 2026',
+    updated: '3 Nov 2026',
     intro: 'Delivery windows, coverage areas, fees and what happens if a delivery fails.',
     sections: [
       {
         heading: 'Delivery windows',
         body: [
-          'Express orders arrive in 30–45 minutes. Scheduled orders arrive within the 2-hour window you book at checkout.',
+          'Express orders arrive in about {eta_minutes} minutes. Scheduled orders arrive within the window you book at checkout.',
         ],
       },
       {
         heading: 'Coverage & fees',
         body: [
-          'We deliver across metro Melbourne. Express costs $4.99 (free over $60) and scheduled slots cost $2.99. All fees are shown before you pay.',
+          'We deliver across metro Melbourne. Express costs {express_fee}. Scheduled windows cost {scheduled_fee} unless a different fee is shown at checkout. Delivery is free on orders over {free_over}, and a {handling_fee} handling fee applies to every order. All fees are shown before you pay.',
         ],
       },
       {
@@ -144,20 +144,20 @@ export const POLICIES: Record<PolicyId, Policy> = {
       {
         heading: 'Accepted methods',
         body: [
-          'Visa, Mastercard, Amex, Apple Pay, Google Pay and Spice Kart Money. Cash on delivery is not available.',
+          'Visa, Mastercard, Amex and Spice Kart Money, plus Apple Pay or Google Pay when shown at checkout. Cash on delivery is not available.',
         ],
       },
     ],
   },
   wallet: {
     title: 'Wallet Terms',
-    updated: '2 Nov 2026',
+    updated: '3 Nov 2026',
     intro: 'Rules for Spice Kart Money: your balance, top-ups and getting your money back.',
     sections: [
       {
         heading: 'Your balance',
         body: [
-          'Spice Kart Money is a prepaid balance that can only be used on Spice Kart. Balances do not earn interest and never expire.',
+          'Spice Kart Money is a prepaid balance that can only be used on Spice Kart. Balances do not earn interest and never expire. Any credit from Spice Kart is used first when you pay.',
         ],
       },
       {

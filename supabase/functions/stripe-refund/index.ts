@@ -15,7 +15,13 @@ const key = Deno.env.get('STRIPE_SECRET_KEY');
 const stripe = key ? new Stripe(key, { httpClient: Stripe.createFetchHttpClient() }) : null;
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
-const reply = (status: number, data: unknown) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
+// The admin panel calls this from the browser. Access still depends on the admin's sign-in, not the origin.
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const reply = (status: number, data: unknown) => Response.json(data, { status, headers: { ...cors, 'Cache-Control': 'no-store' } });
 /** Something the admin should read: the panel shows `error`. */
 class Refusal extends Error {}
 
@@ -70,6 +76,7 @@ async function refundOrder(user: SupabaseClient, admin: SupabaseClient, orderId:
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST required' });
   if (!stripe) return reply(503, { error: 'Stripe isn’t set up' });
   const auth = req.headers.get('Authorization');
@@ -144,14 +151,16 @@ Deno.serve(async (req) => {
 
     if (body.action === 'wallet-info' || body.action === 'wallet-to-card') {
       const [{ data: wallet, error: walletError }, { data: credits, error: creditsError }] = await Promise.all([
-        admin.from('wallets').select('balance').eq('customer_id', body.customerId).maybeSingle(),
+        admin.from('wallets').select('balance, credit_balance').eq('customer_id', body.customerId).maybeSingle(),
         admin.from('stripe_wallet_credits').select('payment_intent, amount, refunded').eq('customer_id', body.customerId).order('created_at', { ascending: false }),
       ]);
       if (walletError || creditsError) throw walletError ?? creditsError;
       const balance = Number(wallet?.balance ?? 0);
       const topups = (credits ?? []).map((c) => ({ intent: c.payment_intent, left: roundCents(Number(c.amount) - Number(c.refunded)) })).filter((c) => c.left > 0);
-      const returnable = roundCents(Math.min(balance, topups.reduce((n, c) => n + c.left, 0)));
-      if (body.action === 'wallet-info') return reply(200, { balance, returnable });
+      const credit = Number(wallet?.credit_balance ?? 0);
+      // Admin credit can only be spent, so only the customer's own money can go back to a card.
+      const returnable = roundCents(Math.min(balance - credit, topups.reduce((n, c) => n + c.left, 0)));
+      if (body.action === 'wallet-info') return reply(200, { balance, credit, returnable });
 
       const amount = validAmount(body.amount);
       if (amount == null) throw new Refusal('Enter a valid amount');

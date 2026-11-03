@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Platform } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
@@ -30,8 +30,11 @@ const PAY_DEFS: [PaymentKey, string, string][] = [
   ['Spice Kart Money', 'Spice Kart Money', ''],
 ];
 
+/** Apple Pay only exists on iPhones and Google Pay only on Android. */
+const onThisPhone = (key: PaymentKey) => (key !== 'Apple Pay' || Platform.OS === 'ios') && (key !== 'Google Pay' || Platform.OS === 'android');
+
 /** The admin switches card / wallets / PayID on and off; Spice Kart Money is always offered. */
-const offered = (key: PaymentKey, methods: PaymentKey[]) => key !== 'PayID' && (key === 'Spice Kart Money' || methods.includes(key));
+const offered = (key: PaymentKey, methods: PaymentKey[]) => key !== 'PayID' && onThisPhone(key) && (key === 'Spice Kart Money' || methods.includes(key));
 
 const sel = (on: boolean) => ({ borderColor: on ? LIME : OFF_BORDER, backgroundColor: on ? C.selectedBg : '#fff' });
 
@@ -136,7 +139,7 @@ export default function CheckoutScreen() {
   // A payment method the admin switched off falls back to the first one still on.
   useEffect(() => {
     const p = useApp.getState().payment;
-    if (config.paymentMethods.length && !offered(p, config.paymentMethods)) useApp.getState().set({ payment: config.paymentMethods[0] });
+    if (!offered(p, config.paymentMethods)) useApp.getState().set({ payment: config.paymentMethods.find((m) => offered(m, config.paymentMethods)) ?? 'Spice Kart Money' });
   }, [config.paymentMethods]);
 
   // Where the phone is, recorded with the order (asks for permission once; the order never waits on it).

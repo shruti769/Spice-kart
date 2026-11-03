@@ -6,7 +6,9 @@ import { Chip, FooterBar, OutlineButton } from '@/components/help/kit';
 import { ScreenHeader } from '@/components/screen-header';
 import { Screen, Txt } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
+import { fillPlaceholders } from '@/data/help-topics';
 import { isPolicyId, POLICIES } from '@/lib/policies';
+import { useDeliverySettings } from '@/lib/remote-delivery';
 
 const h2 = [f(700, 14, 1.35), { color: C.ink }];
 const para = [f(400, 12.5, 1.75), { color: '#4A4A45' }];
@@ -15,6 +17,7 @@ const para = [f(400, 12.5, 1.75), { color: '#4A4A45' }];
 export default function PolicyScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const policy = POLICIES[isPolicyId(id) ? id : 'refund'];
+  const delivery = useDeliverySettings();
 
   const scroll = useRef<ScrollView>(null);
   const chips = useRef<ScrollView>(null);
@@ -113,7 +116,7 @@ export default function PolicyScreen() {
               </Txt>
               {s.body.map((p) => (
                 <Txt key={p} style={para}>
-                  {p}
+                  {fillPlaceholders(p, delivery)}
                 </Txt>
               ))}
             </View>

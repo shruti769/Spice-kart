@@ -33,8 +33,8 @@ const money = (v: number) => '$' + (Number.isInteger(v) ? v.toFixed(0) : v.toFix
 const cutoffLabel = (mins: number) =>
   mins >= 60 ? `${mins / 60} hour${mins === 60 ? '' : 's'}` : `${mins} minutes`;
 
-/** Fills the live-value placeholders admins can use in Help centre articles. */
-function fillPlaceholders(text: string, s: DeliverySettings, area: string) {
+/** Fills the live-value placeholders admins can use in Help centre articles (also used by the policies). */
+export function fillPlaceholders(text: string, s: DeliverySettings, area = 'We deliver across Melbourne.') {
   const values: Record<string, string> = {
     eta_minutes: String(s.etaMinutes),
     book_ahead_days: String(s.bookAheadDays),
@@ -165,7 +165,7 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
     stepsTitle: 'FEES AT A GLANCE',
     steps: [
       'Express: {express_fee}, free over {free_over}.',
-      'Scheduled: from {scheduled_fee} — each window shows its own fee.',
+      'Scheduled: each window shows its own fee at checkout.',
       'Handling fee: {handling_fee} per order.',
       'Every fee is shown at checkout before you place the order.',
     ],
@@ -216,15 +216,15 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
     stepsTitle: 'TRY THIS',
     steps: [
       'Check the card number, expiry and CVV under Payment methods in your account.',
-      'Try another method at checkout, like Apple Pay or PayID.',
+      'Try another payment method at checkout.',
       'Contact your bank if the same card keeps failing.',
       'Still stuck? Chat with us from Contact support.',
     ],
   },
   {
     q: 'Accepted payment methods',
-    sub: 'Cards, Apple Pay, Google Pay and PayID',
-    body: 'At checkout you can pay by credit or debit card, Apple Pay, Google Pay or PayID bank transfer. The options you see depend on what your store currently accepts.',
+    sub: 'Cards, digital wallets and Spice Kart Money',
+    body: 'At checkout you can pay by credit or debit card, or with Spice Kart Money if your balance covers the order. Apple Pay or Google Pay also show when they’re available on your phone.',
     stepsTitle: 'TO MANAGE YOUR CARDS',
     steps: [
       'Tap your avatar on Home, then Payment methods.',
@@ -232,7 +232,6 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
       'Tap Set default on the card you use most.',
       'Choose how to pay under Payment method at checkout.',
     ],
-    note: 'Spice Kart Money can’t be used at checkout yet.',
   },
   {
     q: 'Getting a tax invoice',
@@ -268,7 +267,7 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
     steps: [
       'Open Contact support.',
       'Under Your conversations, open the chat about your refund.',
-      'Still waiting after 5 business days? Send us a message in the same chat.',
+      'Still waiting after 10 business days? Send us a message in the same chat.',
     ],
   },
   {
@@ -296,7 +295,7 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
       'Your balance is on the Spice Kart Money card.',
       'Tap Add money to top it up.',
     ],
-    note: 'Paying for orders with Spice Kart Money is coming soon.',
+    note: 'Pay with it at checkout when your balance covers the order.',
   },
   {
     q: 'Adding money',
@@ -313,7 +312,7 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
   {
     q: 'Questions about your balance',
     sub: 'We’re here to help',
-    body: 'Balance doesn’t look right, or want to move money out? Withdrawals aren’t available in the app yet — chat with us and we’ll help.',
+    body: 'Balance doesn’t look right, or want your top-up back on your card? Chat with us and we’ll help.',
     stepsTitle: 'TO GET HELP',
     steps: [
       'Open Contact support.',

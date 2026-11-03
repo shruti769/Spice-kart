@@ -72,6 +72,13 @@ Deno.serve(async (request) => {
         }, { idempotencyKey: `order-${order.id}` });
         const saved = await admin.from('orders').update({ stripe_payment_intent: intent.id }).eq('id', order.id);
         if (saved.error) throw saved.error;
+        // The order may have expired while the PaymentIntent was being created.
+        const latest = await admin.from('orders').select('status').eq('id', order.id).single();
+        if (latest.error) throw latest.error;
+        if (latest.data.status === 'cancelled') {
+          await stripe.paymentIntents.cancel(intent.id);
+          return reply(409, { error: 'order_closed' });
+        }
       }
       if (customer && !intent.customer) intent = await stripe.paymentIntents.update(intent.id, { customer });
       return reply(200, { clientSecret: intent.client_secret, ...await customerDetails() });
