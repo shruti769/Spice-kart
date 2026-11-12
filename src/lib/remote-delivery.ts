@@ -101,14 +101,15 @@ export function startRemoteDelivery() {
 /** Live delivery settings (fees, express ETA …). */
 export const useDeliverySettings = () => useDeliveryStore((s) => s.settings);
 
-/** Express ETA in minutes, e.g. for "Delivery in 25 minutes". */
-export const useEtaMinutes = () => useDeliveryStore((s) => s.settings.etaMinutes);
+/** There's no express delivery: "Standard" is the as-soon-as-possible option (`slot === 'ASAP'`, delivery_type 'express'). */
+export const STANDARD_ETA = '2–4 hours in Brisbane, next day elsewhere';
+export const STANDARD_ETA_SHORT = '2–4 hr delivery in Brisbane';
 
 // ─── Scheduling ─────────────────────────────────────────────────────────────────────────
-// Slot times are the store's local time (Australia/Melbourne), whatever the phone's time zone.
+// Slot times are the store's local time (Australia/Brisbane), whatever the phone's time zone.
 // Dates are 'YYYY-MM-DD' strings; calendar maths uses UTC dates so DST never shifts a day.
 
-const STORE_TZ = 'Australia/Melbourne';
+const STORE_TZ = 'Australia/Brisbane';
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const toISO = (d: Date) => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
 const fromISO = (s: string) => {

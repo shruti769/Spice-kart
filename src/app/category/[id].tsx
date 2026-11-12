@@ -15,7 +15,7 @@ import { PRODUCTS, findCategory, subcategoriesOf, type CategoryId } from '@/data
 import { goBack } from '@/lib/nav';
 import { useBanners } from '@/lib/remote-banners';
 import { useCatalogVersion } from '@/lib/remote-catalog';
-import { useEtaMinutes } from '@/lib/remote-delivery';
+import { STANDARD_ETA_SHORT } from '@/lib/remote-delivery';
 import { useTotals } from '@/store/app-store';
 
 const SIDEBAR = 92;
@@ -34,8 +34,7 @@ function ActiveMarker() {
 /** Promo strip at the top of every category: the category's own name and delivery promise. */
 function PromoStrip({ name }: { name: string }) {
   const title = name;
-  const eta = useEtaMinutes();
-  const subtitle = `Delivered in ${eta} minutes`;
+  const subtitle = STANDARD_ETA_SHORT;
   return (
     <Grad colors={['#F1F9DF', '#FBFDF6']} {...cssAngle(100)} style={styles.strip}>
       <View style={styles.stripIcon}>

@@ -11,7 +11,7 @@ import { useAddress, useApp } from '@/store/app-store';
 
 export type BannerPlacement = 'home_top' | 'home_middle' | 'home_feature' | 'category_top';
 
-/** A live row of `public.banners` (RLS only returns published ones whose dates include today, Melbourne time). */
+/** A live row of `public.banners` (RLS only returns published ones whose dates include today, Brisbane time). */
 export type Banner = {
   id: string;
   title: string;
@@ -34,13 +34,13 @@ export const useBannerStore = create<{ banners: Banner[]; loaded: boolean }>(() 
 
 let midnightTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** Banners go live / expire at midnight in Melbourne (the read policy's clock): refresh then. */
+/** Banners go live / expire at midnight in Brisbane (the read policy's clock): refresh then. */
 function scheduleMidnightRefresh() {
   clearTimeout(midnightTimer);
   let minutes: number;
   try {
     const p = Object.fromEntries(
-      new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+      new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
         .formatToParts(new Date())
         .map((x) => [x.type, x.value]),
     );
@@ -73,7 +73,7 @@ export function refreshBanners() {
 
 let started = false;
 
-/** Load banners now, on foreground, at Melbourne midnight, and live when an admin changes them. */
+/** Load banners now, on foreground, at Brisbane midnight, and live when an admin changes them. */
 export function startRemoteBanners() {
   if (started || !isSupabaseConfigured) return;
   started = true;

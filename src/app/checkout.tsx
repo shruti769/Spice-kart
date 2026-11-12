@@ -11,7 +11,7 @@ import { money } from '@/data/catalog';
 import { goBack, resetTo } from '@/lib/nav';
 import { refreshCatalog } from '@/lib/remote-catalog';
 import { refreshConfig, useStoreConfig } from '@/lib/remote-config';
-import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useClosedToday, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, STANDARD_ETA, useClosedToday, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
 import { getDeviceFix, type DeviceFix } from '@/lib/location';
 import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
 import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
@@ -87,7 +87,7 @@ function orderFailed(e: OrderError) {
       return s.flash(`${s.payment} isn’t available right now · choose another payment method`);
     case 'store_closed':
       refreshConfig();
-      // Express only runs in store hours; a scheduled window still works.
+      // Standard delivery only runs in store hours; a scheduled window still works.
       s.set({ slot: null, scheduling: true });
       return s.flash('We’re closed for express delivery right now · schedule a delivery instead');
     case 'insufficient_balance':
@@ -132,7 +132,7 @@ export default function CheckoutScreen() {
   const short = config.minOrder > 0 && t.sub < config.minOrder ? config.minOrder - t.sub : 0;
   const closedNote = 'Closed' + (config.opens ? ' · ' + config.opens : '');
 
-  // Express only runs in store hours: switch to scheduling while closed.
+  // Standard delivery only runs in store hours: switch to scheduling while closed.
   useEffect(() => {
     if (!config.open && useApp.getState().slot === 'ASAP') useApp.getState().set({ slot: null, scheduling: true });
   }, [config.open]);
@@ -267,7 +267,7 @@ export default function CheckoutScreen() {
         <Animated.View layout={layout} style={[styles.card, { gap: 10 }]}>
           <Txt style={f(700, 14, 1.25)}>Delivery time</Txt>
           <Tap
-            onPress={() => (config.open ? set({ slot: 'ASAP', scheduling: false }) : useApp.getState().flash('Express delivery is ' + closedNote.toLowerCase() + ' · schedule a delivery instead'))}
+            onPress={() => (config.open ? set({ slot: 'ASAP', scheduling: false }) : useApp.getState().flash('Standard delivery is ' + closedNote.toLowerCase() + ' · schedule a delivery instead'))}
             style={[styles.option, sel(express), !config.open && { opacity: 0.6 }]}>
             <IconBox>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -278,10 +278,10 @@ export default function CheckoutScreen() {
               </Svg>
             </IconBox>
             <View style={styles.optionText}>
-              <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>Express delivery</Txt>
+              <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>Standard delivery</Txt>
               <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 11, 1.2), { color: C.muted }]}>Get your order as soon as possible</Txt>
               {config.open ? (
-                <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.green }]}>Arrives in {delivery.etaMinutes} minutes</Txt>
+                <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(600, 12.5, 1.3), { color: C.green }]}>{STANDARD_ETA}</Txt>
               ) : (
                 <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.danger }]}>{closedNote}</Txt>
               )}

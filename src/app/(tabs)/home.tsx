@@ -14,7 +14,7 @@ import { LOCAL, REMOTE_PREFIX, type Category, type Product } from '@/data/catalo
 import { goTab, openCategory } from '@/lib/nav';
 import { refreshBanners, useBanners } from '@/lib/remote-banners';
 import { refreshCatalog, useCategories, useProducts } from '@/lib/remote-catalog';
-import { useDeliverySettings } from '@/lib/remote-delivery';
+import { STANDARD_ETA_SHORT } from '@/lib/remote-delivery';
 import { useHomeContent } from '@/lib/remote-home-content';
 import { useUnreadNotifications } from '@/lib/remote-notifications';
 import { useOrders } from '@/lib/remote-orders';
@@ -139,7 +139,6 @@ export default function HomeScreen() {
     }
   };
   const products = shuffled(useProducts(), seed);
-  const { etaMinutes: eta } = useDeliverySettings();
   const unreadNotifications = useUnreadNotifications();
   const categories = shuffled(useCategories(), seed);
   const topBanners = useBanners('home_top');
@@ -162,7 +161,7 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <Tap onPress={() => router.push('/location')} style={styles.headerInfo}>
             <Txt numberOfLines={1} style={[f(700, 14, 1.25), { color: C.greenOk }]}>SpiceKart</Txt>
-            <Txt numberOfLines={1} style={[f(700, 17, 1.25), { color: C.greenDeep }]}>Delivery in {eta} minutes</Txt>
+            <Txt numberOfLines={1} style={[f(700, 17, 1.25), { color: C.greenDeep }]}>{STANDARD_ETA_SHORT}</Txt>
             <View style={styles.addr}>
               <Txt numberOfLines={1} style={[f(400, 13, 1.25), { color: C.greenMuted }]}>{addrLabel}</Txt>
               <ChevronDown size={10} />

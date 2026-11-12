@@ -62,7 +62,7 @@ export default function OrderConfirmedScreen() {
 
   const items = order ? order.itemIds.map((id) => findProduct(id)).filter((p): p is Product => !!p) : [];
   const addr = useAddress();
-  const arriving = slot === 'ASAP' || !slot ? 'Express delivery' : slotLabelOf(slot, schDay);
+  const arriving = slot === 'ASAP' || !slot ? 'Standard delivery' : slotLabelOf(slot, schDay);
 
   return (
     <Screen style={{ backgroundColor: '#fff' }}>

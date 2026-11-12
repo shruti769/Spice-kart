@@ -34,7 +34,7 @@ const cutoffLabel = (mins: number) =>
   mins >= 60 ? `${mins / 60} hour${mins === 60 ? '' : 's'}` : `${mins} minutes`;
 
 /** Fills the live-value placeholders admins can use in Help centre articles (also used by the policies). */
-export function fillPlaceholders(text: string, s: DeliverySettings, area = 'We deliver across Melbourne.') {
+export function fillPlaceholders(text: string, s: DeliverySettings, area = 'We deliver across Australia.') {
   const values: Record<string, string> = {
     eta_minutes: String(s.etaMinutes),
     book_ahead_days: String(s.bookAheadDays),
@@ -60,7 +60,7 @@ export function helpTopics(
 ): HelpTopic[] {
   const area = postcodes.length
     ? `We currently deliver to these postcodes: ${[...postcodes].sort().join(', ')}.`
-    : 'We deliver across Melbourne.';
+    : 'We deliver across Australia.';
   const fill = (t: string) => fillPlaceholders(t, s, area);
   const fillQ = (item: HelpQuestion): HelpQuestion => ({
     ...item,
@@ -160,16 +160,16 @@ const BUILT_IN: Record<HelpTopicId, HelpQuestion[]> = {
   delivery: [
   {
     q: 'Delivery times & fees',
-    sub: 'Express vs scheduled',
-    body: 'Express delivery arrives in about {eta_minutes} minutes while the store is open. Scheduled delivery lets you pick a delivery window up to {book_ahead_days} days ahead.',
+    sub: 'Standard vs scheduled',
+    body: 'Standard delivery arrives in 2–4 hours in Brisbane and by the next day elsewhere, when you order while the store is open. Scheduled delivery lets you pick a delivery window up to {book_ahead_days} days ahead.',
     stepsTitle: 'FEES AT A GLANCE',
     steps: [
-      'Express: {express_fee}, free over {free_over}.',
+      'Standard: {express_fee}, free over {free_over}.',
       'Scheduled: each window shows its own fee at checkout.',
       'Handling fee: {handling_fee} per order.',
       'Every fee is shown at checkout before you place the order.',
     ],
-    note: 'Outside store hours Express shows as Closed — choose Schedule instead.',
+    note: 'Outside store hours Standard delivery shows as Closed — choose Schedule instead.',
   },
   {
     q: 'Booking a scheduled slot',

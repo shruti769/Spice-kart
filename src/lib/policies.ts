@@ -103,19 +103,19 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   delivery: {
     title: 'Delivery Policy',
-    updated: '3 Nov 2026',
+    updated: '12 Nov 2026',
     intro: 'Delivery windows, coverage areas, fees and what happens if a delivery fails.',
     sections: [
       {
         heading: 'Delivery windows',
         body: [
-          'Express orders arrive in about {eta_minutes} minutes. Scheduled orders arrive within the window you book at checkout.',
+          'Standard delivery arrives in 2–4 hours in Brisbane and by the next day elsewhere. Scheduled orders arrive within the window you book at checkout.',
         ],
       },
       {
         heading: 'Coverage & fees',
         body: [
-          'We deliver across metro Melbourne. Express costs {express_fee}. Scheduled windows cost {scheduled_fee} unless a different fee is shown at checkout. Delivery is free on orders over {free_over}, and a {handling_fee} handling fee applies to every order. All fees are shown before you pay.',
+          'We deliver across Australia. Standard delivery costs {express_fee}. Scheduled windows cost {scheduled_fee} unless a different fee is shown at checkout. Delivery is free on orders over {free_over}, and a {handling_fee} handling fee applies to every order. All fees are shown before you pay.',
         ],
       },
       {

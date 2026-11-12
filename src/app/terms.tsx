@@ -49,8 +49,8 @@ export default function TermsScreen() {
           </Section>
         ))}
         <Txt style={[f(400, 10, 1.6), { color: '#9A9A95' }]}>
-          Spice Kart Pty Ltd · ABN 41 998 220 117 · 118 Smith Street, Collingwood VIC 3066. Email legal@spicekart.com.au
-          for a printed copy.
+          Spicekart · ABN 67 699 205 939 · 57 Highview Avenue, Gatton QLD 4343, Australia · 0430 827 427. Email
+          Orders@spicekart.com.au for a printed copy.
         </Txt>
       </ScrollView>
     </Screen>

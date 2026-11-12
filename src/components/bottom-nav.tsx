@@ -12,7 +12,7 @@ import {
 import { Grad, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { money } from '@/data/catalog';
-import { useEtaMinutes } from '@/lib/remote-delivery';
+import { STANDARD_ETA_SHORT } from '@/lib/remote-delivery';
 import { goTab, type TabName } from '@/lib/nav';
 import { useTotals } from '@/store/app-store';
 
@@ -29,7 +29,6 @@ const ITEMS: { name: TabName; label: string; Icon: typeof NavHomeIcon }[] = [
 /** Floating "n items · $x — View cart →" bar. */
 export function CartBar({ showTotal = true, style }: { showTotal?: boolean; style?: StyleProp<ViewStyle> }) {
   const t = useTotals();
-  const eta = useEtaMinutes();
   return (
     <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} style={[{ marginHorizontal: 10, marginBottom: 8 }, style]}>
       <Grad
@@ -54,7 +53,7 @@ export function CartBar({ showTotal = true, style }: { showTotal?: boolean; styl
             {showTotal && ' · ' + money(t.total)}
           </Txt>
           <Txt numberOfLines={1} style={[f(500, 11.5, 1.2), { color: C.greenMuted }]}>
-            Arriving in {eta} minutes
+            {STANDARD_ETA_SHORT}
           </Txt>
         </View>
         <Tap

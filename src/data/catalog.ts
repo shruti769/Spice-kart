@@ -221,7 +221,7 @@ export function productFromRow(r: RemoteProductRow): Product | null {
   const barcode = r.barcode?.trim() ?? '';
   const attributes = (r.attributes ?? []).map((value) => value.trim()).filter(Boolean).join(', ');
   const delivery = [
-    ...(r.express_delivery ? ['Express'] : []),
+    ...(r.express_delivery ? ['Standard'] : []),
     ...(r.scheduled_delivery ? ['Scheduled'] : []),
   ].join(', ');
   const img = r.image_url || photo(cat.kw);

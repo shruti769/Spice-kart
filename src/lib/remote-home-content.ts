@@ -7,7 +7,7 @@ import { useOrderStore } from '@/lib/remote-orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 // What the admin's Content page publishes for the Home screen: `public.announcements` and
-// `public.seasonal_collections`. RLS only returns ones whose dates include today (Melbourne time),
+// `public.seasonal_collections`. RLS only returns ones whose dates include today (Brisbane time),
 // and edits arrive live through `app_changes`.
 
 export type Announcement = {

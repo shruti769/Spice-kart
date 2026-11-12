@@ -60,11 +60,11 @@ export function startRemoteConfig() {
   onTableChange(['business_settings'], refreshConfig);
 }
 
-// ─── Opening hours (Australia/Melbourne, whatever the phone's time zone) ─────────────────
+// ─── Opening hours (Australia/Brisbane, whatever the phone's time zone) ─────────────────
 
 let clock: Intl.DateTimeFormat | null = null;
 try {
-  clock = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+  clock = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
 } catch {
   // No time-zone data: use the phone's local time.
 }

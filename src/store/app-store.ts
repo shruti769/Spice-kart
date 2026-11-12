@@ -60,7 +60,7 @@ type State = {
 
   // checkout
   payment: PaymentKey;
-  /** 'ASAP' (express) or the id of a scheduled `delivery_slots` row. */
+  /** 'ASAP' (standard delivery) or the id of a scheduled `delivery_slots` row. */
   slot: string | null;
   /** Date ('YYYY-MM-DD') of the scheduled slot; '' = the first bookable day. */
   schDay: string;
@@ -298,7 +298,7 @@ export function cartTotals(cart: Record<string, number>, coupon: CouponCode | nu
     }
   }
   const { settings, slots } = useDeliveryStore.getState();
-  // Express unless a scheduled slot is picked; a slot removed by the admin falls back to the default slot fee.
+  // Standard delivery unless a scheduled slot is picked; a slot removed by the admin falls back to the default slot fee.
   const scheduled = slot && slot !== 'ASAP' ? slots.find((s) => s.id === slot) : undefined;
   const fee = !slot || slot === 'ASAP' ? settings.expressFee : scheduled ? slotFee(scheduled, settings) : settings.scheduledFee;
   const baseDelivery = n === 0 ? 0 : sub >= settings.freeOver ? 0 : fee;

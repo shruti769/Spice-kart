@@ -15,6 +15,7 @@ import { BackIcon } from '@/components/icons';
 import { Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import { goBack, goTab } from '@/lib/nav';
+import { STANDARD_ETA } from '@/lib/remote-delivery';
 import { useTrackedOrder, type OrderStatus, type TrackedOrder } from '@/lib/remote-orders';
 import { useStore } from '@/lib/remote-store';
 import { useApp } from '@/store/app-store';
@@ -121,7 +122,8 @@ function Tracking({ order }: { order: TrackedOrder }) {
   const cancelled = order.status === 'cancelled';
   const delivered = order.status === 'delivered';
   const cur = currentStep(order);
-  const late = !cancelled && !delivered && !!order.promisedBy && new Date(order.promisedBy) < new Date();
+  // Standard delivery has no exact time (2–4 hours in Brisbane, next day elsewhere), so only a booked window can run late.
+  const late = !cancelled && !delivered && order.deliveryType === 'scheduled' && !!order.promisedBy && new Date(order.promisedBy) < new Date();
   // Name and phone exactly as the admin saved them (live), for this order's store.
   const store = useStore(order.storeId);
   const phone = store?.phone;
@@ -132,7 +134,7 @@ function Tracking({ order }: { order: TrackedOrder }) {
       ? ['DELIVERED', order.deliveredAt ? when(order.deliveredAt) : 'Delivered']
       : order.deliveryType === 'scheduled'
         ? ['SCHEDULED DELIVERY', order.slotLabel ?? 'Scheduled delivery']
-        : ['ESTIMATED ARRIVAL', order.promisedBy ? 'By ' + when(order.promisedBy) : 'Express delivery'];
+        : ['STANDARD DELIVERY', STANDARD_ETA];
 
   /** Time (or hint) under each step. */
   const sub = (k: Exclude<OrderStatus, 'cancelled'>, i: number) => {

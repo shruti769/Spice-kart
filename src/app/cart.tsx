@@ -12,7 +12,7 @@ import { C, cardShadow, f } from '@/constants/theme';
 import { LOCAL, findProduct, money, type Product } from '@/data/catalog';
 import { goBack, goTab } from '@/lib/nav';
 import { useProducts } from '@/lib/remote-catalog';
-import { useEtaMinutes } from '@/lib/remote-delivery';
+import { STANDARD_ETA } from '@/lib/remote-delivery';
 import { useCoupons } from '@/lib/remote-coupons';
 import { useApp, useTotals } from '@/store/app-store';
 
@@ -58,7 +58,6 @@ function FreeBar({ pct }: { pct: number }) {
 /** Cart (prototype `sCart`). */
 export default function CartScreen() {
   const pad = usePad();
-  const eta = useEtaMinutes();
   const cart = useApp((s) => s.cart);
   const T = useTotals();
   const coupon = useApp((s) => s.coupon);
@@ -93,7 +92,7 @@ export default function CartScreen() {
                 <Circle cx={10} cy={10} r={7} stroke={C.green} strokeWidth={1.7} />
                 <Path d="M10 6v4.3l3 1.8" stroke={C.green} strokeWidth={1.7} strokeLinecap="round" />
               </Svg>
-              <Txt numberOfLines={1} style={[f(600, 13.5, 1.25), { color: '#2F4A36' }]}>Delivery in {eta} minutes</Txt>
+              <Txt numberOfLines={1} style={[f(600, 13.5, 1.25), { color: '#2F4A36' }]}>{STANDARD_ETA}</Txt>
             </View>
 
             <View style={[styles.card, styles.free]}>
