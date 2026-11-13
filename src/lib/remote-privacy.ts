@@ -140,7 +140,7 @@ export function openLink(link: unknown) {
 
 let lastHandled: string | null = null;
 
-/** Open what a tapped notification points to (once per notification, only when signed in). */
+/** Open the notifications inbox for a tapped push (once per notification, only when signed in); each item there opens its link. */
 export async function handleNotificationTap(response: NotificationResponse | null | undefined) {
   if (!response) return;
   const id = response.notification.request.identifier;
@@ -150,8 +150,8 @@ export async function handleNotificationTap(response: NotificationResponse | nul
   await whenHydrated();
   await new Promise((r) => setTimeout(r, 400));
   if (!useApp.getState().signedIn) return;
-  const data = response.notification.request.content.data as { notificationId?: number; link?: unknown } | undefined;
-  openLink(data?.link);
+  const data = response.notification.request.content.data as { notificationId?: number } | undefined;
+  router.push('/notifications');
   // Marks it opened in the customer's inbox (the admin's campaign stats read it).
   if (typeof data?.notificationId === 'number') {
     const now = new Date().toISOString();

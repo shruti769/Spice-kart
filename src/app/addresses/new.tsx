@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
@@ -9,14 +9,17 @@ import { BackIcon, SearchIcon } from '@/components/icons';
 import { Grad, Screen, Tap, Txt, usePad } from '@/components/ui/primitives';
 import { C, f } from '@/constants/theme';
 import type { Address } from '@/data/catalog';
-import { coordsOf } from '@/lib/location';
+import { addressAt, coordsOf, type Coords } from '@/lib/location';
 import { saveAddress, updateAddress } from '@/lib/remote-addresses';
 import { goBack } from '@/lib/nav';
 import { deliversTo } from '@/lib/remote-postcodes';
 import { useApp, usePref } from '@/store/app-store';
 
 const TAGS = ['Home', 'Work', 'Other'] as const;
-const MAP = require('@/assets/images/addresses/map.png');
+/** Where the map starts when there's no pin yet: the Brisbane CBD. */
+const BRISBANE: Coords = { lat: -27.4698, lng: 153.0251 };
+const CLOSE = { latitudeDelta: 0.004, longitudeDelta: 0.004 };
+const WIDE = { latitudeDelta: 0.2, longitudeDelta: 0.2 };
 
 /** Single-line input font without a line-height (keeps the text vertically centred on iOS). */
 const inputFont = (w: 400 | 500, size: number) => {
@@ -30,14 +33,30 @@ const StarIcon = () => (
   </Svg>
 );
 
-/** Map snapshot (Chadstone) with the drop pin baked in, plus the adjust pill. */
-function MapPreview({ onAdjust }: { onAdjust: () => void }) {
+/** Live map with a pin fixed at the centre: moving the map puts the pin on the door. Google Maps on Android, Apple Maps on iOS. */
+function MapPicker({ mapRef, start, close, onPick }: { mapRef: RefObject<MapView | null>; start: Coords; close: boolean; onPick: (c: Coords) => void }) {
   return (
     <View style={styles.map}>
-      <Image source={MAP} contentFit="cover" style={styles.mapImage} />
-      <Tap onPress={onAdjust} accessibilityRole="button" pressedStyle={{ backgroundColor: '#F4F6F0' }} style={styles.mapPill}>
-        <Txt style={[f(600, 11.5, 1), { color: C.forest }]}>Move pin to adjust location</Txt>
-      </Tap>
+      <MapView
+        ref={mapRef}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        style={styles.mapView}
+        initialRegion={{ latitude: start.lat, longitude: start.lng, ...(close ? CLOSE : WIDE) }}
+        onRegionChangeComplete={(r, details) => {
+          if (details?.isGesture) onPick({ lat: r.latitude, lng: r.longitude });
+        }}
+        toolbarEnabled={false}
+        showsPointsOfInterests={false}
+      />
+      <View pointerEvents="none" style={styles.pin}>
+        <Svg width={28} height={36} viewBox="0 0 28 36" fill="none">
+          <Path d="M14 1.5C7.1 1.5 1.5 6.9 1.5 13.6c0 9.1 12.5 20.9 12.5 20.9s12.5-11.8 12.5-20.9C26.5 6.9 20.9 1.5 14 1.5z" fill={C.forest} />
+          <Path d="M14 18.2a4.6 4.6 0 100-9.2 4.6 4.6 0 000 9.2z" fill={C.lime} />
+        </Svg>
+      </View>
+      <View pointerEvents="none" style={styles.mapPill}>
+        <Txt style={[f(600, 11.5, 1), { color: C.forest }]}>Move the map to put the pin on your door</Txt>
+      </View>
     </View>
   );
 }
@@ -117,8 +136,8 @@ export default function AddressNewScreen() {
     editing
       ? fieldsOf(editing)
       : located
-        ? { street: p.street ?? '', unit: '', suburb: p.suburb ?? '', state: p.state || 'VIC', postcode: p.postcode ?? '', notes: '' }
-        : { street: '', unit: '', suburb: '', state: 'VIC', postcode: '', notes: '' },
+        ? { street: p.street ?? '', unit: '', suburb: p.suburb ?? '', state: p.state || 'QLD', postcode: p.postcode ?? '', notes: '' }
+        : { street: '', unit: '', suburb: '', state: 'QLD', postcode: '', notes: '' },
   );
   // "Save as" starts on the address being edited.
   useEffect(() => {
@@ -127,9 +146,40 @@ export default function AddressNewScreen() {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // The map pin is used when saving unless the address was typed over afterwards.
+  const mapRef = useRef<MapView>(null);
+  const [pin, setPin] = useState<Coords | null>(located);
+  const [typedAfterPin, setTypedAfterPin] = useState(false);
+  const [query, setQuery] = useState('');
   const edit = (key: keyof typeof form) => (value: string) => {
     setError('');
+    if (key !== 'unit' && key !== 'notes') setTypedAfterPin(true);
     setForm((f) => ({ ...f, [key]: value }));
+  };
+
+  /** Pin moved (by dragging the map or a search): fill in the address found there. */
+  const pick = async (c: Coords) => {
+    setPin(c);
+    setTypedAfterPin(false);
+    setError('');
+    const found = await addressAt(c);
+    if (!found) return;
+    setForm((f) => ({
+      ...f,
+      street: found.street || f.street,
+      suburb: found.suburb || f.suburb,
+      state: found.state || f.state,
+      postcode: found.postcode || f.postcode,
+    }));
+  };
+
+  const search = async () => {
+    const q = query.trim();
+    if (!q) return;
+    const c = await coordsOf(q + ', Australia');
+    if (!c) return flash('Couldn’t find that place · try a street and suburb, or move the map');
+    mapRef.current?.animateToRegion({ latitude: c.lat, longitude: c.lng, ...CLOSE }, 400);
+    pick(c);
   };
 
   const save = async () => {
@@ -145,11 +195,10 @@ export default function AddressNewScreen() {
     const unit = form.unit.trim();
     const area = suburb + ' ' + state;
     const line = (unit ? unit + ', ' : '') + street + ', ' + area + ' ' + postcode;
-    // Keep the GPS pin unless the address was changed to somewhere else; otherwise look it up.
-    const moved = street !== initial.street.trim() || suburb !== initial.suburb.trim() || postcode !== initial.postcode.trim();
     setSaving(true);
-    const pin = located && !moved ? located : await coordsOf(street + ', ' + area + ' ' + postcode + ', Australia');
-    const address = { tag: addrTag[0], label: addrTag, line, area, ...(pin ?? {}), notes: form.notes.trim() };
+    // Keep the map pin unless the address was typed over afterwards; otherwise look it up.
+    const at = pin && !typedAfterPin ? pin : await coordsOf(street + ', ' + area + ' ' + postcode + ', Australia');
+    const address = { tag: addrTag[0], label: addrTag, line, area, ...(at ?? {}), notes: form.notes.trim() };
     try {
       if (editing?.id) await updateAddress(editing.id, address);
       else await saveAddress(address, defAddr);
@@ -190,7 +239,7 @@ export default function AddressNewScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}>
-          <MapPreview onAdjust={() => flash('Pin placed at ' + (form.street.trim() || 'your address'))} />
+          <MapPicker mapRef={mapRef} start={located ?? BRISBANE} close={!!located} onPick={pick} />
 
           <View style={styles.search}>
             <SearchIcon size={15} />
@@ -200,6 +249,9 @@ export default function AddressNewScreen() {
               placeholderTextColor="#A8A8A2"
               selectionColor={C.green}
               returnKeyType="search"
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={search}
               style={[inputFont(400, 13), styles.input]}
             />
           </View>
@@ -277,7 +329,9 @@ const styles = StyleSheet.create({
   back: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 12, paddingHorizontal: 14, paddingBottom: 18, gap: 10.5 },
   map: { marginBottom: 1.5, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E3E7DC', backgroundColor: '#F6F4F4' },
-  mapImage: { width: '100%', aspectRatio: 512 / 191 },
+  mapView: { width: '100%', height: 190 },
+  // The pin's tip sits on the map's centre.
+  pin: { position: 'absolute', left: '50%', top: 95, marginLeft: -14, marginTop: -36 },
   mapPill: {
     position: 'absolute',
     left: 11,

@@ -91,7 +91,7 @@ export default function RootLayout() {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
 
-  // A tapped push notification (also the one that launched the app) opens what it links to.
+  // A tapped push notification (also the one that launched the app) opens the notifications inbox.
   const tapped = useLastNotificationResponse();
   const ready = loaded || !!error;
   useEffect(() => {
