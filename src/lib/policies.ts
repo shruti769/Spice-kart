@@ -64,7 +64,7 @@ export const POLICIES: Record<PolicyId, Policy> = {
       {
         heading: 'Your choices',
         body: [
-          'Download or delete your data at any time from Account → Privacy & data. Marketing can be turned off in Notification settings.',
+          'Delete your account at any time from Account → Privacy & data, or email Orders@spicekart.com.au for a copy of your data. Marketing can be turned off in Notification settings.',
         ],
       },
     ],
