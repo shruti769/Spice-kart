@@ -33,7 +33,9 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": { "ascAppId": "6834700208" }
+    }
   },
   "cli": {
     "appVersionSource": "local"
