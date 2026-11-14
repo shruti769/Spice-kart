@@ -43,14 +43,14 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   privacy: {
     title: 'Privacy Policy',
-    updated: '2 Nov 2026',
+    updated: '13 Nov 2026',
     intro: 'What personal data we collect, why we use it, and the choices you have.',
     sections: [
       {
         heading: 'What we collect',
         body: [
           'Your name, contact details, delivery addresses, order history and payment tokens. We never store full card numbers.',
-          'With your permission we use your location to show nearby stores and live delivery tracking.',
+          'With your permission we use your location to find your address on the map and check that we deliver to you.',
         ],
       },
       {
@@ -71,14 +71,14 @@ export const POLICIES: Record<PolicyId, Policy> = {
   },
   refund: {
     title: 'Refund & Cancellation',
-    updated: '2 Nov 2026',
+    updated: '13 Nov 2026',
     intro: 'When you can cancel for free, how refunds are paid and how to report a problem.',
     sections: [
       {
         heading: 'Cancelling an order',
         body: [
-          'You may cancel free of charge until our team begins picking. After that, a restocking fee of up to $4.95 may apply to fresh and chilled items.',
-          'Orders already out for delivery cannot be cancelled in the app — contact support and we will help where possible.',
+          'Orders can’t be cancelled in the app. Contact support before our team starts picking and we will cancel your order and refund you in full.',
+          'Orders already out for delivery cannot be cancelled — contact support and we will help where possible.',
         ],
       },
       {

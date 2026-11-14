@@ -204,7 +204,7 @@ export default function SearchScreen() {
             {trending.terms.length > 0 && (
             <View style={{ gap: 9 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <Label>TRENDING IN MELBOURNE</Label>
+                <Label>TRENDING NOW</Label>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Svg width={11} height={11} viewBox="0 0 14 14" fill="none">
                     <Path d="M2 10l3.4-3.6 2.4 2.2L12 4.4" stroke={C.green} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />

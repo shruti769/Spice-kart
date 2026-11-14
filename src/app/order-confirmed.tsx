@@ -17,6 +17,7 @@ import { C, cardShadow, f } from '@/constants/theme';
 import { findProduct, money, type Product } from '@/data/catalog';
 import { goTab } from '@/lib/nav';
 import { useAddress, useApp, usePref, useTotals, type PlacedOrder } from '@/store/app-store';
+import { useStandardEta } from '@/lib/standard-eta';
 
 /** Quantities are read when the store records them on the order (see report); otherwise ×1. */
 const qtyOf = (order: PlacedOrder, id: string) => order.qty[id] ?? 1;
@@ -62,7 +63,8 @@ export default function OrderConfirmedScreen() {
 
   const items = order ? order.itemIds.map((id) => findProduct(id)).filter((p): p is Product => !!p) : [];
   const addr = useAddress();
-  const arriving = slot === 'ASAP' || !slot ? 'Standard delivery' : slotLabelOf(slot, schDay);
+  const eta = useStandardEta();
+  const arriving = slot === 'ASAP' || !slot ? eta.long : slotLabelOf(slot, schDay);
 
   return (
     <Screen style={{ backgroundColor: '#fff' }}>
@@ -76,9 +78,9 @@ export default function OrderConfirmedScreen() {
         </View>
 
         <View style={[styles.card, { marginTop: 19 }]}>
-          <InfoRow label="Order number" value={order ? order.no : 'Order #SK10482'} valueStyle={null} />
+          <InfoRow label="Order number" value={order ? order.no : '—'} valueStyle={null} />
           <InfoRow label="Arriving" value={arriving} valueStyle={{ color: C.green }} />
-          {/* Break before "VIC 3000" so it reads as two lines, as in the design. */}
+          {/* Break before "QLD 4000" so it reads as two lines, as in the design. */}
           <InfoRow label="Delivering to" value={(addr?.line ?? '—').replace(/ (?=[A-Z]{2,3} \d{4}$)/, '\n')} valueStyle={f(500, 13.5, 1.22)} />
           <InfoRow label={'Paid with ' + payment} value={order ? order.total : money(t.total)} valueStyle={f(700, 14, 1.22)} last />
         </View>

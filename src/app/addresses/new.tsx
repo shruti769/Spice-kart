@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import type MapView from 'react-native-maps';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
@@ -14,6 +14,16 @@ import { saveAddress, updateAddress } from '@/lib/remote-addresses';
 import { goBack } from '@/lib/nav';
 import { deliversTo } from '@/lib/remote-postcodes';
 import { useApp, usePref } from '@/store/app-store';
+
+// Loaded defensively: a dev build made before react-native-maps was added has no native map module,
+// and a plain import would crash the whole app there. Without it the screen still works (no map).
+let Maps: typeof import('react-native-maps') | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Maps = require('react-native-maps');
+} catch {
+  Maps = null;
+}
 
 const TAGS = ['Home', 'Work', 'Other'] as const;
 /** Where the map starts when there's no pin yet: the Brisbane CBD. */
@@ -35,6 +45,8 @@ const StarIcon = () => (
 
 /** Live map with a pin fixed at the centre: moving the map puts the pin on the door. Google Maps on Android, Apple Maps on iOS. */
 function MapPicker({ mapRef, start, close, onPick }: { mapRef: RefObject<MapView | null>; start: Coords; close: boolean; onPick: (c: Coords) => void }) {
+  if (!Maps) return null;
+  const { default: MapView, PROVIDER_GOOGLE } = Maps;
   return (
     <View style={styles.map}>
       <MapView
@@ -109,7 +121,7 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: () => vo
 function fieldsOf(a: Address) {
   const [, place, suburb, state, postcode] = a.line.match(/^(.*), (.+) ([A-Z]{2,3}) (\d{4})$/) ?? [];
   const notes = a.notes ?? '';
-  if (!place) return { street: a.line, unit: '', suburb: '', state: 'VIC', postcode: '', notes };
+  if (!place) return { street: a.line, unit: '', suburb: '', state: 'QLD', postcode: '', notes };
   const comma = place.indexOf(', ');
   return comma < 0
     ? { street: place, unit: '', suburb, state, postcode, notes }

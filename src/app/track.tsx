@@ -18,9 +18,13 @@ import { goBack, goTab } from '@/lib/nav';
 import { STANDARD_ETA } from '@/lib/remote-delivery';
 import { useTrackedOrder, type OrderStatus, type TrackedOrder } from '@/lib/remote-orders';
 import { useStore } from '@/lib/remote-store';
+import { isBrisbaneAddress } from '@/lib/standard-eta';
 import { useApp } from '@/store/app-store';
 
 const LIME = C.lime;
+
+/** Standard orders: 2–4 hours to a Brisbane postcode, next day elsewhere. */
+const standardEta = (brisbane: boolean | undefined) => (brisbane === true ? 'Within 2–4 hours' : brisbane === false ? 'By the next day' : STANDARD_ETA);
 
 /** The normal flow; the admin moves an order along it (or cancels it). */
 const FLOW: [Exclude<OrderStatus, 'cancelled'>, string][] = [
@@ -128,13 +132,14 @@ function Tracking({ order }: { order: TrackedOrder }) {
   const store = useStore(order.storeId);
   const phone = store?.phone;
 
+  const brisbane = isBrisbaneAddress({ line: order.addressLine });
   const [etaLabel, etaValue] = cancelled
     ? ['ORDER CANCELLED', order.cancelReason || 'If you were charged, the refund is on its way']
     : delivered
       ? ['DELIVERED', order.deliveredAt ? when(order.deliveredAt) : 'Delivered']
       : order.deliveryType === 'scheduled'
         ? ['SCHEDULED DELIVERY', order.slotLabel ?? 'Scheduled delivery']
-        : ['STANDARD DELIVERY', STANDARD_ETA];
+        : ['STANDARD DELIVERY', standardEta(brisbane)];
 
   /** Time (or hint) under each step. */
   const sub = (k: Exclude<OrderStatus, 'cancelled'>, i: number) => {
@@ -142,7 +147,7 @@ function Tracking({ order }: { order: TrackedOrder }) {
     if (at && i <= cur) return when(at);
     if (i <= cur) return 'Done';
     if (cancelled) return '—';
-    if (k === 'delivered') return order.deliveryType === 'scheduled' ? order.slotLabel ?? 'Scheduled' : order.promisedBy ? 'Est. ' + when(order.promisedBy) : '—';
+    if (k === 'delivered') return order.deliveryType === 'scheduled' ? order.slotLabel ?? 'Scheduled' : brisbane === false ? 'Next day' : order.promisedBy ? 'By ' + when(order.promisedBy) : '—';
     return i === cur + 1 ? 'Next' : '—';
   };
 

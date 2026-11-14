@@ -13,7 +13,7 @@ import { C, cardShadow, cssAngle, f } from '@/constants/theme';
 import { discountPct, findProduct, money, type Product } from '@/data/catalog';
 import { goBack } from '@/lib/nav';
 import { useProducts } from '@/lib/remote-catalog';
-import { STANDARD_ETA_SHORT } from '@/lib/remote-delivery';
+import { useStandardEta } from '@/lib/standard-eta';
 import { useApp } from '@/store/app-store';
 
 
@@ -65,6 +65,7 @@ function ProductUnavailable() {
 }
 
 function ProductDetail({ prod, products }: { prod: Product; products: Product[] }) {
+  const eta = useStandardEta();
   const pad = usePad();
   // "Continue browsing" on the Search tab.
   useEffect(() => {
@@ -93,7 +94,7 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
     },
     {
       key: 'd',
-      label: STANDARD_ETA_SHORT,
+      label: eta.short,
       icon: (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
           <Circle cx={12} cy={12} r={8} stroke={C.green} strokeWidth={1.6} />
@@ -156,7 +157,7 @@ function ProductDetail({ prod, products }: { prod: Product; products: Product[] 
             }}>
             <View style={{ width: 6, height: 6, borderRadius: 4, backgroundColor: C.lime }} />
             <Txt numberOfLines={1} style={[f(600, 11, 1), { color: C.forest }]}>
-              {STANDARD_ETA_SHORT}
+              {eta.short}
             </Txt>
           </View>
         </Grad>

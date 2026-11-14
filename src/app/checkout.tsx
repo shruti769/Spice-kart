@@ -11,7 +11,8 @@ import { money } from '@/data/catalog';
 import { goBack, resetTo } from '@/lib/nav';
 import { refreshCatalog } from '@/lib/remote-catalog';
 import { refreshConfig, useStoreConfig } from '@/lib/remote-config';
-import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, STANDARD_ETA, useClosedToday, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { findBookableSlot, refreshDelivery, scheduledLabel, slotFee, useClosedToday, useDeliverySettings, useScheduleDays, windowLabel } from '@/lib/remote-delivery';
+import { useStandardEta } from '@/lib/standard-eta';
 import { getDeviceFix, type DeviceFix } from '@/lib/location';
 import { OrderError, placeOrder as submitOrder } from '@/lib/remote-orders';
 import { deliversTo, postcodeOf } from '@/lib/remote-postcodes';
@@ -89,7 +90,7 @@ function orderFailed(e: OrderError) {
       refreshConfig();
       // Standard delivery only runs in store hours; a scheduled window still works.
       s.set({ slot: null, scheduling: true });
-      return s.flash('We’re closed for express delivery right now · schedule a delivery instead');
+      return s.flash('We’re closed for standard delivery right now · schedule a delivery instead');
     case 'insufficient_balance':
       refreshWallet();
       return s.flash('Not enough Spice Kart Money · add money or choose another payment method');
@@ -104,6 +105,7 @@ function orderFailed(e: OrderError) {
 
 export default function CheckoutScreen() {
   const pad = usePad();
+  const eta = useStandardEta();
   const t = useTotals();
   const coupon = useApp((s) => s.coupon);
   const slot = useApp((s) => s.slot);
@@ -171,7 +173,7 @@ export default function CheckoutScreen() {
     }
     if (s.slot === 'ASAP' && !config.open) {
       s.set({ slot: null, scheduling: true });
-      s.flash('We’re closed for express delivery right now · schedule a delivery instead');
+      s.flash('We’re closed for standard delivery right now · schedule a delivery instead');
       return;
     }
     if (s.slot !== 'ASAP') {
@@ -281,7 +283,7 @@ export default function CheckoutScreen() {
               <Txt numberOfLines={1} style={f(600, 12.5, 1.2)}>Standard delivery</Txt>
               <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(400, 11, 1.2), { color: C.muted }]}>Get your order as soon as possible</Txt>
               {config.open ? (
-                <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(600, 12.5, 1.3), { color: C.green }]}>{STANDARD_ETA}</Txt>
+                <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[f(600, 12.5, 1.3), { color: C.green }]}>{eta.long}</Txt>
               ) : (
                 <Txt numberOfLines={1} style={[f(600, 12.5, 1.3), { color: C.danger }]}>{closedNote}</Txt>
               )}
@@ -338,7 +340,7 @@ export default function CheckoutScreen() {
                   />
                 </>
               ) : (
-                <Txt style={[f(400, 12.5, 1.4), { color: C.muted }]}>No delivery windows are open right now. Choose express delivery or check back later.</Txt>
+                <Txt style={[f(400, 12.5, 1.4), { color: C.muted }]}>No delivery windows are open right now. Choose standard delivery or check back later.</Txt>
               )}
             </Animated.View>
           )}

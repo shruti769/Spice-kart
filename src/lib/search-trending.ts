@@ -50,7 +50,7 @@ function subscribe() {
     .subscribe();
 }
 
-/** "Trending in Melbourne": live top searches that match products in the store. */
+/** "Trending now": live top searches that match products in the store. */
 export function useTrending() {
   useEffect(() => {
     refreshTrending();
