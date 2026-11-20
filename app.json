@@ -2,7 +2,7 @@
   "expo": {
     "name": "SpiceKart",
     "slug": "Spice-kart",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/brand/app-icon.png",
     "scheme": "spicekart",
@@ -21,7 +21,8 @@
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +41,8 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "package": "com.komal92.spicekart",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 2
     },
     "web": {
       "output": "static",
