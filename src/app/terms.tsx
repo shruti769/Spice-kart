@@ -18,7 +18,7 @@ const GROUPS: { title: string; rows: [string, string, GlyphName, PolicyId][] }[]
   {
     title: 'ORDERS & DELIVERY',
     rows: [
-      ['Refund & Cancellation Policy', 'Cancelling, refunds and restocking fees', 'refund', 'refund'],
+      ['Refund & Cancellation Policy', 'Cancelling an order and refunds', 'refund', 'refund'],
       ['Delivery Policy', 'Windows, coverage and failed deliveries', 'truck', 'delivery'],
     ],
   },

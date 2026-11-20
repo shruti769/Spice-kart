@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 import { AuthHero, SHEET_OVERLAP } from '@/components/auth/auth-hero';
 import { FocusStatusBar } from '@/components/ui/focus-status-bar';
@@ -18,8 +18,12 @@ import {
   type SocialProvider,
 } from '@/lib/firebase-auth';
 import { cleanMobile, isValidMobile, PHONE_COUNTRIES, toInternationalPhone, type PhoneCountry } from '@/lib/phone';
+
 import { completeSignIn } from '@/lib/sign-in';
 import { useApp } from '@/store/app-store';
+
+/** The app is only available in Australia, so sign-in is by Australian mobile number only. */
+const COUNTRY: PhoneCountry = 'AU';
 
 function AppleIcon() {
   return (
@@ -60,23 +64,10 @@ function AustraliaFlag() {
   );
 }
 
-function IndiaFlag() {
-  return (
-    <Svg width={21} height={15} viewBox="0 0 42 30">
-      <Rect width={42} height={30} rx={3} fill="#fff" />
-      <Path d="M0 0h42v10H0z" fill="#FF9933" />
-      <Path d="M0 20h42v10H0z" fill="#138808" />
-      <Circle cx={21} cy={15} r={4} stroke="#000080" strokeWidth={1} fill="none" />
-      <Path d="M21 11v8m-4-4h8m-7-3 6 6m0-6-6 6" stroke="#000080" strokeWidth={0.6} />
-    </Svg>
-  );
-}
-
 export default function LoginScreen() {
   const { insets } = usePad();
   const phone = useApp((s) => s.phone);
-  const country = useApp((s) => s.phoneCountry);
-  const [countriesOpen, setCountriesOpen] = useState(false);
+  const country = COUNTRY;
   const selectedCountry = PHONE_COUNTRIES[country];
   const set = useApp((s) => s.set);
   const flash = useApp((s) => s.flash);
@@ -96,7 +87,7 @@ export default function LoginScreen() {
     setSending(true);
     try {
       await sendPhoneOtp(toInternationalPhone(digits, country));
-      set({ phone: digits });
+      set({ phone: digits, phoneCountry: country });
       router.push('/otp');
     } catch (error) {
       flash(phoneAuthError(error));
@@ -137,10 +128,9 @@ export default function LoginScreen() {
           </View>
 
           <View style={[styles.phoneField, error && styles.phoneFieldError]}>
-            <Tap accessibilityRole="button" accessibilityLabel={`Country: ${selectedCountry.name}, ${selectedCountry.dialCode}`} accessibilityState={{ expanded: countriesOpen }} disabled={sending} onPress={() => setCountriesOpen((open) => !open)} style={styles.country}>
-              {country === 'IN' ? <IndiaFlag /> : <AustraliaFlag />}
-              <Svg width={8} height={5} viewBox="0 0 8 5"><Path d="M0 0h8L4 5z" fill="#111" /></Svg>
-            </Tap>
+            <View accessible accessibilityLabel={`${selectedCountry.name}, ${selectedCountry.dialCode}`} style={styles.country}>
+              <AustraliaFlag />
+            </View>
             <View style={styles.fieldDivider} />
             <Txt style={f(600, 14, 1.2)}>{selectedCountry.dialCode}</Txt>
             <TextInput
@@ -165,24 +155,7 @@ export default function LoginScreen() {
             />
           </View>
 
-          {countriesOpen && (
-            <View style={styles.countryChoices}>
-              {(Object.keys(PHONE_COUNTRIES) as PhoneCountry[]).map((option) => (
-                <Tap key={option} accessibilityRole="button" accessibilityState={{ selected: country === option }} disabled={sending}
-                  onPress={() => {
-                    if (requestBusy.current) return;
-                    set({ phoneCountry: option, phone: option === country ? phone : '' });
-                    setError(false);
-                    setCountriesOpen(false);
-                  }} style={styles.countryChoice}>
-                  {option === 'IN' ? <IndiaFlag /> : <AustraliaFlag />}
-                  <Txt style={f(600, 13, 1.2)}>{PHONE_COUNTRIES[option].name} ({PHONE_COUNTRIES[option].dialCode})</Txt>
-                </Tap>
-              ))}
-            </View>
-          )}
-
-          {error && <Txt style={[f(500, 12, 1.3), styles.error]}>{country === 'IN' ? 'Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9' : 'Enter a 9-digit Australian mobile number starting with 4'}</Txt>}
+          {error && <Txt style={[f(500, 12, 1.3), styles.error]}>Enter a 9-digit Australian mobile number starting with 4</Txt>}
 
           <Tap accessibilityRole="button" disabled={sending} onPress={goOtp} pressedStyle={{ backgroundColor: C.limeHover }} style={[styles.continue, !isValidMobile(digits, country) && styles.continueIdle]}>
             <Txt style={[f(700, 14, 1.2), { color: '#102A08' }]}>{sending ? 'Sending code…' : 'Continue'}</Txt>
@@ -224,8 +197,6 @@ const styles = StyleSheet.create({
   heading: { gap: 6, paddingHorizontal: 6, marginBottom: 24 },
   subtitle: { color: C.muted },
   phoneField: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 54, paddingHorizontal: 16, backgroundColor: C.field, borderWidth: 1, borderColor: C.border, borderRadius: 13 },
-  countryChoices: { marginTop: 8, borderWidth: 1, borderColor: C.border, borderRadius: 12, overflow: 'hidden' },
-  countryChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   country: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48 },
   fieldDivider: { width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 3 },
   input: { flex: 1, minWidth: 0, height: 52, padding: 0, lineHeight: undefined, color: C.ink },
